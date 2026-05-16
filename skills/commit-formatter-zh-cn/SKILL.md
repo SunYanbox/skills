@@ -1,5 +1,5 @@
 ---
-name: commit-formatter
+name: commit-formatter-zh-cn
 description: >
   用于规范 Git commit 提交信息的 skill。基于 Conventional Commits 规范，type 和 scope 使用英文，
   description/body/footer 使用中文。当用户提到"写 commit"、"提交信息"、"格式化 commit"、"提交代码"、
