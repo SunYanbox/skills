@@ -1,0 +1,42 @@
+{
+  "skill_name": "commit-formatter",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "帮我写个 commit，我加了一个用户注册功能，在后端加了接口和数据库表，对应的 issue 是 #45",
+      "expected_output": "生成符合规范的 commit 信息，type 为 feat，scope 可选（如 api），description 为中文描述包含'用户注册'相关，首行末尾包含 (#45)",
+      "files": [],
+      "expectations": [
+        "type 必须是 'feat'",
+        "description 用中文描述用户注册功能",
+        "首行末尾包含 '(#45)'",
+        "body 用中文",
+        "type 为英文小写"
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "修了个 bug，用户点击提交按钮页面会卡死，是因为表单校验那里有个死循环，改好了。对应的 PR 是 #102",
+      "expected_output": "生成符合规范的 commit 信息，type 为 fix，description 为中文描述修复表单校验死循环问题，首行末尾包含 (#102)",
+      "files": [],
+      "expectations": [
+        "type 必须是 'fix'",
+        "description 用中文描述修复表单校验死循环问题",
+        "首行末尾包含 '(#102)'",
+        "body 解释原因和影响"
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "看看我当前改了什么东西，帮我生成一个提交信息",
+      "expected_output": "skill 尝试运行 git diff 命令分析当前变更，然后生成符合规范的 commit 信息",
+      "files": [],
+      "expectations": [
+        "尝试执行 git diff 或 git diff --cached",
+        "输出的 type 与变更内容匹配",
+        "description 用中文",
+        "分析变更文件的内容"
+      ]
+    }
+  ]
+}
