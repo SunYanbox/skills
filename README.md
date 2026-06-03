@@ -4,6 +4,7 @@ A collection of agent skills for [Claude Code](https://claude.ai/code) and compa
 
 > Spec: [Agent Skills Specification](https://agentskills.io/specification)
 > Created via: [Skill Creator](https://www.skills.sh/anthropics/skills/skill-creator)
+> [![skills.sh](https://skills.sh/b/SunYanbox/skills)](https://skills.sh/SunYanbox/skills)
 
 ## Install
 
