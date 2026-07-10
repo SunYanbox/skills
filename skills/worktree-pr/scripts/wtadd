@@ -1,21 +1,20 @@
 #!/usr/bin/env bash
 # wtadd - create a git worktree on a fresh branch.
-# Usage: wtadd <start-branch> <wt-name> <wt-path>
+# Usage: wtadd <start-branch> <new-branch> <wt-path>
 #
 # Runs: git worktree add -b <new-branch> <wt-path> <start-branch>
-# The new branch name is derived from the repo's existing branch style. The
-# naming preference is read from .wt-pr/commit.md (key: 分支格式), falling back
-# to a Conventional-Commits-ish default.
+# The caller (the Agent) provides the full new branch name;
+# this script does NOT derive or infer the branch name.
 # ASCII stdout.
 set -u
 
 if [ $# -ne 3 ]; then
-  echo "wtadd: usage: wtadd <start-branch> <wt-name> <wt-path>"
+  echo "wtadd: usage: wtadd <start-branch> <new-branch> <wt-path>"
   exit 1
 fi
 
 START_BRANCH="$1"
-WT_NAME="$2"
+NEW_BRANCH="$2"
 WT_PATH="$3"
 
 ROOT="$(git rev-parse --show-toplevel 2>/dev/null)"
@@ -24,44 +23,8 @@ if [ -z "$ROOT" ]; then
   exit 1
 fi
 
-# --- Resolve new branch name -----------------------------------------------
-# Prefer the first pattern from .wt-pr/commit.md (分支格式), e.g.:
-#   feat/<ticket>-<short-desc>, fix/<short-desc>
-# Tokens we substitute: <ticket> -> empty, <short-desc> -> wt-name,
-# <wt-name> -> wt-name. Any literal slashes are kept. If no pattern, default
-# to "wt/<wt-name>".
-BRANCH_PATTERN=""
-if [ -f "$ROOT/.wt-pr/commit.md" ]; then
-  # Read the first line beginning with the 分支格式 key (UTF-8 literal),
-  # take the part after the colon, strip leading spaces, split on comma, keep
-  # the first pattern. Match under LC_ALL=C so the multi-byte key is compared
-  # byte-exactly regardless of the shell's locale; without this, a non-UTF-8
-  # or mismatched locale would silently miss the key and fall back to the
-  # default branch pattern.
-  BRANCH_PATTERN=$(LC_ALL=C grep -m1 '^分支格式:' "$ROOT/.wt-pr/commit.md" 2>/dev/null \
-    | sed 's/^[^:]*:[[:space:]]*//' \
-    | awk -F',' '{print $1}' \
-    | sed 's/[[:space:]]*$//' )
-  if [ -z "$BRANCH_PATTERN" ] && [ -s "$ROOT/.wt-pr/commit.md" ]; then
-    echo "wtadd: branch-format key not found in .wt-pr/commit.md; using default branch pattern" >&2
-  fi
-fi
-if [ -z "$BRANCH_PATTERN" ]; then
-  BRANCH_PATTERN="wt/<wt-name>"
-fi
-
-NEW_BRANCH="$BRANCH_PATTERN"
-NEW_BRANCH="${NEW_BRANCH//<ticket>/}"            # no ticket by default
-NEW_BRANCH="${NEW_BRANCH//<short-desc>/$WT_NAME}"
-NEW_BRANCH="${NEW_BRANCH//<wt-name>/$WT_NAME}"
-# tidy any double slashes left by an empty <ticket>
-NEW_BRANCH=$(printf '%s' "$NEW_BRANCH" | sed 's#//*#/#g; s#/$##')
-
-# A branch name may not contain the sequences below; sanitize.
-NEW_BRANCH=$(printf '%s' "$NEW_BRANCH" | sed 's/[^a-zA-Z0-9._/-]/-/g')
-
-if [ -z "$NEW_BRANCH" ] || [ "$NEW_BRANCH" = "/" ]; then
-  echo "wtadd: derived new branch name is empty"
+if [ -z "$NEW_BRANCH" ]; then
+  echo "wtadd: new branch name is empty"
   exit 1
 fi
 

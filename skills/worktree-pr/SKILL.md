@@ -46,8 +46,8 @@ deterministic interface the skill is built around.
 | Script | Args | What it does |
 |---|---|---|
 | `ghchk` | (none) | Exits 0 if `git` and `gh` are on PATH, else 1. |
-| `wtinit` | `<start-branch> <wt-name> <wt-path> <user-request>` | Creates `.wt-pr/` + `.gitignore`, and the initial task doc in `activate/`. Only runs if `.wt-pr/` is missing. |
-| `wtadd` | `<start-branch> <wt-name> <wt-path>` | `git worktree add -b <new-branch> <wt-path> <start-branch>`. The new branch name follows the resolved style. |
+| `wtinit` | `<start-branch> <wt-name> <wt-path> <user-request>` | Creates `.wt-pr/` + `.gitignore`, and the initial task doc in `activate/`. Idempotent on directories; always (re)writes the task doc. Call for each new task, even if `.wt-pr/` already exists. |
+| `wtadd` | `<start-branch> <new-branch> <wt-path>` | `git worktree add -b <new-branch> <wt-path> <start-branch>`. The caller supplies the full new branch name; the script does not derive or infer it. |
 | `wcp` | `<wt-path> <file1> [file2 ...]` | Diff-copies the listed files/dirs from the current working tree into `<wt-path>`. ≤100 MB → git-hash compare; >100 MB → mtime compare. Skips identical files. |
 | `wtcmt` | `<wt-path> <message>` | In the worktree: `git add .` then `git commit`. Message may be multi-line. Prefix the message with `@` to instead read it from a file: `@path/to/msg.txt`. |
 | `wtpush` | `<wt-path> <mode>` | Push the worktree's branch to origin. `mode` = `https` or `ssh` (ssh temporarily swaps origin to an SSH URL, then restores it). 3 internal retries per call. |
@@ -62,7 +62,7 @@ Run `wtinit` once to create the layout. It ignores itself with `.gitignore` (`*`
 ```
 .wt-pr/
 ├── .gitignore          # contents: *  (ignores everything under .wt-pr/)
-├── commit.md           # your/project commit & PR preferences (you create & maintain)
+├── commit.md           # commit & PR preferences — maintained by both user and Agent
 ├── activate/           # in-progress task docs:  <start-branch>-<wt-name>.md
 └── done/               # archived task docs (only after full clean success)
 ```
@@ -110,7 +110,17 @@ bash <skill-dir>/scripts/wtstep "$DOC" counter inc
 
 ### Preferences file `commit.md`
 
-You create and maintain this (at Step 2 / Step 4) in UTF-8. Required keys (one per line):
+This file is **maintained by both the user and the Agent** in UTF-8.
+
+- **Who creates it:** the Agent creates it at Step 2 / Step 4 if it does not yet exist.
+- **Who updates it:** either party at any time. The Agent will update it when it infers a
+  missing required key from the project (see fallback chain below) or when the user
+  explicitly asks to change a preference. The user may also edit it directly.
+- **When the Agent updates it:** (1) when a required key is missing and the Agent resolves it
+  via the fallback chain, the Agent writes the resolved value back; (2) when the user
+  requests a change to an existing preference.
+
+Required keys (one per line):
 
 - `分支格式`: branch name pattern(s), comma-separated, e.g. `feat/<ticket>-<short-desc>, fix/<short-desc>`
 - `提交语言`: `中文` or `英文`
@@ -131,19 +141,34 @@ paused task resumable.
 
 ### Step 0 — Initialize & look for an in-progress task
 
-1. If `.wt-pr/` does not exist, run `wtinit` (it's fine to run with dummy args here — it
-   only needs to make the dirs; but to be safe pass the real values once you know them in
-   Step 2, calling `wtinit` earlier with placeholder args is also acceptable since
-   `.gt-pr/`-creation is idempotent). Simplest: if `.wt-pr/` is missing, create just the
-   skeleton now by running `mkdir -p .wt-pr/activate .wt-pr/done && printf '*\n' > .wt-pr/.gitignore`,
-   then let Step 2's `wtinit` write the real task doc. (If `.wt-pr/` already exists,
-   `wtinit` is a no-op on the dirs.)
+1. If `.wt-pr/` does not exist, run `wtinit` with placeholder args to create the
+   directory skeleton (it is idempotent on directories):
+   ```bash
+   bash <skill-dir>/scripts/wtinit "placeholder" "placeholder" "placeholder" "placeholder"
+   ```
+   Step 2 will call `wtinit` again with the real values — it overwrites the placeholder
+   task doc but leaves the directories and `.gitignore` alone.
 2. Determine the current branch: `git rev-parse --abbrev-ref HEAD`.
 3. Scan `.wt-pr/activate/` for any doc whose name starts with `<current-branch>-`.
-   - If one exists, the user has a paused task on this branch. Ask: "Found an in-progress
-     task (`<name>`). Continue it, or start a new one?" If continue → read that doc and
-     resume from the first `待办`/`进行中`/`失败` step. If new → proceed to Step 1.
-   - If none, proceed to Step 1.
+   Apply the following logic based on the user's request:
+
+   **A. User did NOT specify a file scope** (e.g. "make a PR for my changes"):
+   - If exactly one in-progress doc exists → ask: "Found an in-progress task
+     (`<name>`). Continue it, or start a new one?" If continue → resume from the first
+     `待办`/`进行中`/`失败` step. If new → proceed to Step 1.
+   - If multiple in-progress docs exist → list them and ask the user which one to
+     continue. The user controls concurrency — the Agent must not operate on two
+     worktrees simultaneously without the user's explicit choice.
+   - If none → stop and tell the user: no in-progress task found and no file scope
+     specified. Ask which files to include in the PR before proceeding to Step 1.
+
+   **B. User specified a clear file scope** (e.g. "commit and push src/core"):
+   - If one in-progress doc's change scope **exactly matches** the user's scope → ask:
+     "Found an in-progress task (`<name>`) with the same file scope. Continue it?"
+     If yes → resume; if no → proceed to Step 1 to start a new task.
+   - If no in-progress doc matches the scope → proceed directly to Step 1 (start a new
+     task without asking).
+   - If multiple docs partially overlap → treat as no exact match and proceed to Step 1.
 
 ### Step 1 — Tool check
 
@@ -162,24 +187,28 @@ Non-zero exit → stop and tell the user which tool (`git` / `gh`) is missing.
    style. If they clash, ask the user which they prefer. Record the result in `commit.md`
    under `分支格式` (build the file now if it's missing — you'll fill the other keys at
    Step 4, but capture `分支格式` now).
-2. **Generate the worktree name.** Run `printf '%04x-%04x\n' $RANDOM $RANDOM` (e.g.
+2. **Generate the new branch name.** Based on the `分支格式` pattern and the nature of the
+   user's changes, compose a complete branch name yourself (e.g. `feat/add-login-flow`,
+   `fix/null-ptr-crash`). Use the pattern as a template: substitute `<short-desc>` with a
+   concise English hyphenated description of the change, omit or fill `<ticket>` if
+   applicable.
+3. **Generate the worktree name.** Run `printf '%04x-%04x\n' $RANDOM $RANDOM` (e.g.
    `7f3a-9c21`) and use the output as `<wt-name>`. Don't invent a string yourself — `$RANDOM`
    avoids collisions and bias.
-3. **Pick the worktree path.** Default: `<repo-root>/.wt-pr/worktrees/<wt-name>` (relative
+4. **Pick the worktree path.** Default: `<repo-root>/.wt-pr/worktrees/<wt-name>` (relative
    form `.wt-pr/worktrees/<wt-name>` works when you're at the repo root). This subdir is
    gitignored, so it never shows up in `git status`.
-4. Write the initial task doc:
+5. Write the initial task doc:
    ```bash
    bash <skill-dir>/scripts/wtinit "<start-branch>" "<wt-name>" "<wt-path>" "<user-request verbatim>"
    ```
    (`<start-branch>` is the current branch.) Then mark `检查工具` → `完成`,
    `创建工作树` → `进行中` in the task doc.
-5. Create the worktree:
+6. Create the worktree:
    ```bash
-   bash <skill-dir>/scripts/wtadd "<start-branch>" "<wt-name>" "<wt-path>"
+   bash <skill-dir>/scripts/wtadd "<start-branch>" "<new-branch>" "<wt-path>"
    ```
-   `wtadd` derives `<new-branch>` from the `分支格式` style + `<wt-name>` + the nature of the
-   changes. On success, set `创建工作树` → `完成`.
+   On success, set `创建工作树` → `完成`.
 
 > The worktree is checked out clean from `<start-branch>`'s tip. Your job in Step 3 is to
 > overlay the user's uncommitted edits onto it.
@@ -240,11 +269,13 @@ the remote branch name the script reports.
 
 1. The PR **base** is `<start-branch>` (the branch the user was on), unless the user named a
    different target.
-2. Read `.wt-pr/commit.md` PR preferences. If `PR模板路径` exists, read that template and
+2. **Describe the changes objectively** — what was added/changed/removed, in what area.
+   Do not speculate about intent, motivation, or the future. Keep it factual.
+3. Read `.wt-pr/commit.md` PR preferences. If `PR模板路径` exists, read that template and
    fill it. Otherwise model the title/body on the repo's existing open or merged PRs (use
    `gh pr list --state all --limit 10` and `gh pr view <num>`). Generate title + body in the
    configured `PR语言`.
-3. Set `创建PR` → `进行中`, then:
+4. Set `创建PR` → `进行中`, then:
    ```bash
    bash <skill-dir>/scripts/wtpr "<wt-path>" "<base-branch>" "<title>" "<body>"
    ```
