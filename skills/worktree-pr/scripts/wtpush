@@ -1,0 +1,129 @@
+#!/usr/bin/env bash
+# wtpush - push a worktree's branch to origin, with retries.
+# Usage: wtpush <wt-path> <mode>     # mode = https | ssh
+#
+# https mode: push using the current remote URL (usually served via gh's
+#   credential helper). Retry up to 3 times.
+# ssh mode: if origin is an https URL, temporarily rewrite it to ssh
+#   (git@host:owner/repo.git), push (retry 3x), then ALWAYS restore the
+#   original URL. If origin is already ssh, just push.
+# ASCII stdout.
+set -u
+
+RETRIES=3
+HTTPS_HOST_CACHE=""
+
+if [ $# -ne 2 ]; then
+  echo "wtpush: usage: wtpush <wt-path> <mode>"
+  exit 1
+fi
+
+WT_PATH="$1"
+MODE="$2"
+
+case "$MODE" in
+  https|ssh) ;;
+  *) echo "wtpush: mode must be https or ssh"; exit 1 ;;
+esac
+
+if [ ! -d "$WT_PATH" ]; then
+  echo "wtpush: worktree path not found: $WT_PATH"
+  exit 1
+fi
+
+BRANCH=$(git -C "$WT_PATH" rev-parse --abbrev-ref HEAD 2>/dev/null)
+if [ -z "$BRANCH" ] || [ "$BRANCH" = "HEAD" ]; then
+  echo "wtpush: cannot determine branch in $WT_PATH"
+  exit 1
+fi
+
+# Read the raw configured origin URL (not a insteadOf-rewritten view) so the
+# restore at the end is byte-for-byte identical to what we started with.
+ORIGINAL_URL=$(git -C "$WT_PATH" config --get remote.origin.url 2>/dev/null)
+if [ -z "$ORIGINAL_URL" ]; then
+  ORIGINAL_URL=$(git -C "$WT_PATH" remote get-url origin 2>/dev/null)
+fi
+if [ -z "$ORIGINAL_URL" ]; then
+  echo "wtpush: no origin remote"
+  exit 1
+fi
+
+# https -> ssh URL converter. Handles:
+#   https://host/owner/repo(.git)? and https://user:token@host/owner/repo(.git)?
+https_to_ssh() {
+  local url="$1"
+  # strip userinfo
+  url="${url#https://}"
+  url="${url#http://}"
+  local host="${url%%/*}"
+  local rest="${url#*/}"          # owner/repo(.git)?
+  rest="${rest%.git}"
+  printf 'git@%s:%s.git' "$host" "$rest"
+}
+
+is_ssh_url() {
+  case "$1" in
+    git@*|ssh://*) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+restore_url() {
+  if [ -n "$ORIGINAL_URL" ]; then
+    git -C "$WT_PATH" remote set-url origin "$ORIGINAL_URL" >/dev/null 2>&1
+  fi
+}
+
+do_push() {
+  # $1 = branch. Returns 0 on success.
+  local i
+  for i in $(seq 1 "$RETRIES"); do
+    if git -C "$WT_PATH" push -u origin "$1" 2>&1; then
+      return 0
+    fi
+    echo "wtpush: push attempt $i/$RETRIES failed"
+    sleep 2
+  done
+  return 1
+}
+
+if [ "$MODE" = "https" ]; then
+  if do_push "$BRANCH"; then
+    echo "wtpush: pushed $BRANCH (https)"
+    echo "wtpush: branch=$BRANCH"
+    exit 0
+  fi
+  echo "wtpush: https push failed after $RETRIES attempts"
+  exit 1
+fi
+
+# MODE = ssh
+if is_ssh_url "$ORIGINAL_URL"; then
+  # Already ssh; just push.
+  if do_push "$BRANCH"; then
+    echo "wtpush: pushed $BRANCH (ssh)"
+    echo "wtpush: branch=$BRANCH"
+    exit 0
+  fi
+  echo "wtpush: ssh push failed after $RETRIES attempts"
+  exit 1
+fi
+
+# Switch origin to ssh, push, always restore.
+SSH_URL=$(https_to_ssh "$ORIGINAL_URL")
+git -C "$WT_PATH" remote set-url origin "$SSH_URL" >/dev/null 2>&1 || {
+  echo "wtpush: cannot set ssh remote url"
+  restore_url
+  exit 1
+}
+
+if do_push "$BRANCH"; then
+  restore_url
+  echo "wtpush: pushed $BRANCH (ssh)"
+  echo "wtpush: branch=$BRANCH"
+  exit 0
+fi
+
+restore_url
+echo "wtpush: ssh push failed after $RETRIES attempts"
+exit 1

@@ -1,0 +1,120 @@
+#!/usr/bin/env bash
+# wcp - diff-copy listed files/dirs from the current working tree into a worktree.
+# Usage: wcp <wt-path> <file1> [file2 ...]
+#
+# For each source path (relative to the cwd / repo root, i.e. the main working
+# tree), copy it to the same relative path under <wt-path>, but only if it
+# actually differs from the destination:
+#   * file <= 100 MB: compare git blob hashes (git hash-object). Identical -> skip.
+#   * file  > 100 MB: skip if destination is newer-or-equal by mtime; else copy.
+# Directories are walked recursively.
+#
+# Paths with spaces are supported: pass each as one argument (quoted by caller).
+# ASCII stdout.
+set -u
+
+THRESHOLD=104857600  # 100 * 1024 * 1024
+
+if [ $# -lt 2 ]; then
+  echo "wcp: usage: wcp <wt-path> <file1> [file2 ...]"
+  exit 1
+fi
+
+WT_PATH="$1"; shift
+
+if [ ! -d "$WT_PATH" ]; then
+  echo "wcp: target worktree path is not a directory: $WT_PATH"
+  exit 1
+fi
+
+copied=0
+skipped=0
+errors=0
+
+# file_size <path> -> bytes, portable (fstat-based on common wc impls).
+file_size() {
+  local n
+  n=$(wc -c < "$1" 2>/dev/null | tr -d '[:space:]')
+  printf '%s' "${n:-0}"
+}
+
+# hash_of <path> -> git blob hash, "" if not computable.
+hash_of() {
+  git hash-object -- "$1" 2>/dev/null
+}
+
+# copy_one <src-rel> : copy a single regular file into the worktree if it differs.
+copy_one() {
+  local src="$1"
+  local dst="$WT_PATH/$src"
+
+  if [ ! -f "$src" ]; then
+    echo "wcp: skip, not a regular file: $src"
+    errors=$((errors + 1))
+    return 0
+  fi
+
+  # Ensure destination parent exists.
+  local dstparent
+  dstparent=$(dirname -- "$dst")
+  if [ ! -d "$dstparent" ]; then
+    mkdir -p -- "$dstparent" || { echo "wcp: cannot mkdir $dstparent"; errors=$((errors + 1)); return 0; }
+  fi
+
+  local size
+  size=$(file_size "$src")
+
+  if [ "$size" -le "$THRESHOLD" ]; then
+    local s_hash d_hash
+    s_hash=$(hash_of "$src")
+    if [ -f "$dst" ]; then
+      d_hash=$(hash_of "$dst")
+    else
+      d_hash=""
+    fi
+    if [ -n "$s_hash" ] && [ "$s_hash" = "$d_hash" ]; then
+      skipped=$((skipped + 1))
+      return 0
+    fi
+  else
+    # Large file: compare by mtime. Copy if dst missing or src newer than dst.
+    if [ -f "$dst" ] && [ ! "$src" -nt "$dst" ]; then
+      skipped=$((skipped + 1))
+      return 0
+    fi
+  fi
+
+  if cp -p -- "$src" "$dst"; then
+    copied=$((copied + 1))
+  else
+    echo "wcp: copy failed: $src"
+    errors=$((errors + 1))
+  fi
+}
+
+# walk <path>: descend directories, copy regular files.
+walk() {
+  local p="$1"
+  if [ -d "$p" ]; then
+    # Use find to enumerate files; -print0 for safe handling of spaces/newlines.
+    local f
+    while IFS= read -r -d '' f; do
+      copy_one "$f"
+    done < <(find "$p" -type f -print0 2>/dev/null)
+  elif [ -f "$p" ]; then
+    copy_one "$p"
+  else
+    echo "wcp: source not found: $p"
+    errors=$((errors + 1))
+  fi
+}
+
+for src in "$@"; do
+  walk "$src"
+done
+
+echo "wcp: copied=$copied skipped=$skipped errors=$errors"
+if [ "$errors" -gt 0 ]; then
+  exit 1
+fi
+exit 0

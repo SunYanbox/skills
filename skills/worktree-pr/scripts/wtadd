@@ -1,0 +1,81 @@
+#!/usr/bin/env bash
+# wtadd - create a git worktree on a fresh branch.
+# Usage: wtadd <start-branch> <wt-name> <wt-path>
+#
+# Runs: git worktree add -b <new-branch> <wt-path> <start-branch>
+# The new branch name is derived from the repo's existing branch style. The
+# naming preference is read from .wt-pr/commit.md (key: 分支格式), falling back
+# to a Conventional-Commits-ish default.
+# ASCII stdout.
+set -u
+
+if [ $# -ne 3 ]; then
+  echo "wtadd: usage: wtadd <start-branch> <wt-name> <wt-path>"
+  exit 1
+fi
+
+START_BRANCH="$1"
+WT_NAME="$2"
+WT_PATH="$3"
+
+ROOT="$(git rev-parse --show-toplevel 2>/dev/null)"
+if [ -z "$ROOT" ]; then
+  echo "wtadd: not inside a git repository"
+  exit 1
+fi
+
+# --- Resolve new branch name -----------------------------------------------
+# Prefer the first pattern from .wt-pr/commit.md (分支格式), e.g.:
+#   feat/<ticket>-<short-desc>, fix/<short-desc>
+# Tokens we substitute: <ticket> -> empty, <short-desc> -> wt-name,
+# <wt-name> -> wt-name. Any literal slashes are kept. If no pattern, default
+# to "wt/<wt-name>".
+BRANCH_PATTERN=""
+if [ -f "$ROOT/.wt-pr/commit.md" ]; then
+  # Read the first line beginning with the 分支格式 key (UTF-8 literal),
+  # take the part after the colon, strip leading spaces, split on comma, keep
+  # the first pattern.
+  BRANCH_PATTERN=$(grep -m1 '^分支格式:' "$ROOT/.wt-pr/commit.md" 2>/dev/null \
+    | sed 's/^[^:]*:[[:space:]]*//' \
+    | awk -F',' '{print $1}' \
+    | sed 's/[[:space:]]*$//' )
+fi
+if [ -z "$BRANCH_PATTERN" ]; then
+  BRANCH_PATTERN="wt/<wt-name>"
+fi
+
+NEW_BRANCH="$BRANCH_PATTERN"
+NEW_BRANCH="${NEW_BRANCH//<ticket>/}"            # no ticket by default
+NEW_BRANCH="${NEW_BRANCH//<short-desc>/$WT_NAME}"
+NEW_BRANCH="${NEW_BRANCH//<wt-name>/$WT_NAME}"
+# tidy any double slashes left by an empty <ticket>
+NEW_BRANCH=$(printf '%s' "$NEW_BRANCH" | sed 's#//*#/#g; s#/$##')
+
+# A branch name may not contain the sequences below; sanitize.
+NEW_BRANCH=$(printf '%s' "$NEW_BRANCH" | sed 's/[^a-zA-Z0-9._/-]/-/g')
+
+if [ -z "$NEW_BRANCH" ] || [ "$NEW_BRANCH" = "/" ]; then
+  echo "wtadd: derived new branch name is empty"
+  exit 1
+fi
+
+# --- Create the worktree ---------------------------------------------------
+if git show-ref --verify --quiet "refs/heads/$NEW_BRANCH"; then
+  echo "wtadd: branch already exists: $NEW_BRANCH"
+  exit 1
+fi
+
+if [ -e "$WT_PATH" ]; then
+  echo "wtadd: target path already exists: $WT_PATH"
+  exit 1
+fi
+
+# git worktree add resolves paths relative to cwd; run from repo root.
+if ! git -C "$ROOT" worktree add -b "$NEW_BRANCH" "$WT_PATH" "$START_BRANCH"; then
+  echo "wtadd: git worktree add failed"
+  exit 1
+fi
+
+echo "wtadd: created worktree at ${WT_PATH} on branch ${NEW_BRANCH}"
+echo "wtadd: branch=$NEW_BRANCH"
+exit 0

@@ -1,0 +1,61 @@
+#!/usr/bin/env bash
+# wtcmt - commit all changes in a worktree.
+# Usage: wtcmt <wt-path> <message>
+#
+# In <wt-path>: git add . ; git commit -m "<message>"
+# <message> may be multi-line. If <message> starts with '@', the rest is treated
+# as a file path whose contents are the commit message (git commit -F).
+# ASCII stdout.
+set -u
+
+if [ $# -ne 2 ]; then
+  echo "wtcmt: usage: wtcmt <wt-path> <message>"
+  exit 1
+fi
+
+WT_PATH="$1"
+MSG="$2"
+
+if [ ! -d "$WT_PATH" ]; then
+  echo "wtcmt: worktree path not found: $WT_PATH"
+  exit 1
+fi
+
+if ! git -C "$WT_PATH" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+  echo "wtcmt: not a git worktree: $WT_PATH"
+  exit 1
+fi
+
+git -C "$WT_PATH" add -A || { echo "wtcmt: git add failed"; exit 1; }
+
+# Detect whether there is anything staged to commit.
+if git -C "$WT_PATH" diff --cached --quiet HEAD 2>/dev/null \
+   && [ -z "$(git -C "$WT_PATH" diff --cached --name-only --diff-filter=ACMRT 2>/dev/null)" ]; then
+  echo "wtcmt: nothing staged to commit"
+  exit 1
+fi
+
+case "$MSG" in
+  @*)
+    MSGFILE="${MSG#@}"
+    if [ ! -f "$MSGFILE" ]; then
+      echo "wtcmt: message file not found: $MSGFILE"
+      exit 1
+    fi
+    if ! git -C "$WT_PATH" commit -F "$MSGFILE" --; then
+      echo "wtcmt: commit failed"
+      exit 1
+    fi
+    ;;
+  *)
+    # -F - reads the message from stdin, so newlines/quotes in $MSG are safe.
+    if ! printf '%s\n' "$MSG" | git -C "$WT_PATH" commit -F - --; then
+      echo "wtcmt: commit failed"
+      exit 1
+    fi
+    ;;
+esac
+
+REV=$(git -C "$WT_PATH" rev-parse --short HEAD)
+echo "wtcmt: committed $REV"
+exit 0

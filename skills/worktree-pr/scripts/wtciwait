@@ -1,0 +1,157 @@
+#!/usr/bin/env bash
+# wtciwait - poll a PR's CI checks at fixed times, then report.
+# Usage: wtciwait <PR_URL>
+#
+# Poll schedule (cumulative): 5s, 30s, 90s, 5m (300s), 10m (600s).
+# Uses: gh pr checks <PR_URL> --json name,bucket,state,completedAt
+#
+# Outcomes (ASCII stdout, then exit):
+#   PASSED                       exit 0  all checks pass (or skipped)
+#   NO_CHECKS                    exit 0  repo has no CI (no checks ever appear)
+#   FAILED: <name>, <name>       exit 1  one or more checks failed (or needs action)
+#   TIMEOUT: <name>, <name>      exit 1  still pending/unknown after the last poll
+#
+# Each poll prints a progress line, e.g.: "ci: poll @30 -> PENDING"
+set -u
+
+if [ $# -ne 1 ]; then
+  echo "wtciwait: usage: wtciwait <PR_URL>"
+  exit 1
+fi
+
+PR_URL="$1"
+
+POLL_AT=(5 30 90 300 600)
+PREV=0
+
+# parse_checks <json-on-stdin>: emit one "bucket<TAB>name" line per check.
+# Order-independent: gh does not guarantee field order, so we scan per-object.
+parse_checks() {
+  awk '
+    {
+      gsub(/\}[[:space:]]*,[[:space:]]*\{/, "\n")
+      sub(/^\[[[:space:]]*/, "")
+      sub(/[[:space:]]*\]$/, "")
+      n = split($0, recs, "\n")
+      for (i = 1; i <= n; i++) {
+        r = recs[i]
+        bucket = ""; name = ""
+        if (match(r, /"bucket"[[:space:]]*:[[:space:]]*"[^"]*"/)) {
+          b = substr(r, RSTART, RLENGTH)
+          sub(/.*"bucket"[[:space:]]*:[[:space:]]*"/, "", b); sub(/"$/, "", b)
+          bucket = b
+        }
+        if (match(r, /"name"[[:space:]]*:[[:space:]]*"[^"]*"/)) {
+          nm = substr(r, RSTART, RLENGTH)
+          sub(/.*"name"[[:space:]]*:[[:space:]]*"/, "", nm); sub(/"$/, "", nm)
+          name = nm
+        }
+        if (bucket != "" || name != "") printf "%s\t%s\n", bucket, name
+      }
+    }
+  '
+}
+
+# classify_check <json-on-stdin>: prints one summary line and sets global STATUS.
+# STATUS values: PASSED | FAILED | PENDING | NO_CHECKS
+classify_check() {
+  local out
+  out=$(cat)
+  # Trim surrounding whitespace (command substitution adds a trailing newline).
+  out="${out#"${out%%[![:space:]]*}"}"
+  out="${out%"${out##*[![:space:]]}"}"
+  # gh prints a human sentence (e.g. "no checks reported on the 'x' branch")
+  # when there is no CI. Not JSON.
+  case "$out" in
+    \[*) : ;;                                    # looks like JSON (starts with [)
+    *) STATUS="NO_CHECKS"; echo "ci: no checks reported"; return 0 ;;
+  esac
+
+  local parsed total pass skip pending other
+  parsed=$(printf '%s' "$out" | parse_checks)
+  if [ -z "$parsed" ]; then
+    STATUS="NO_CHECKS"; echo "ci: no checks reported"; return 0
+  fi
+
+  total=$(printf '%s\n' "$parsed" | wc -l | tr -d ' ')
+  pass=$(printf '%s\n'   "$parsed" | awk -F'\t' '$1=="pass"{c++} END{print c+0}')
+  skip=$(printf '%s\n'   "$parsed" | awk -F'\t' '$1=="skipping"{c++} END{print c+0}')
+  pending=$(printf '%s\n' "$parsed" | awk -F'\t' '$1=="pending"{c++} END{print c+0}')
+  # anything that is neither passing, skipped, nor pending = a failure-like state
+  # (fail / action_required / blocking / cancelled / ...)
+  other=$(( total - pass - skip - pending ))
+
+  if [ "$other" -gt 0 ]; then
+    STATUS="FAILED"; echo "ci: checks total=$total pass=$pass fail=$other pending=$pending"; return 0
+  fi
+  if [ "$pending" -gt 0 ]; then
+    STATUS="PENDING"; echo "ci: checks total=$total pass=$pass pending=$pending"; return 0
+  fi
+  STATUS="PASSED"; echo "ci: checks total=$total pass=$pass"
+  return 0
+}
+
+# names_for <json-text> <mode>: print comma-joined check names.
+# mode = fail    -> every check that is NOT pass/skipping/pending (failure-like)
+# mode = pending -> checks still pending
+names_for() {
+  local out="$1" mode="$2"
+  case "$mode" in
+    fail)
+      printf '%s' "$out" | parse_checks \
+        | awk -F'\t' '$1!="pass" && $1!="skipping" && $1!="pending" && $1!="" {print $2}' ;;
+    pending)
+      printf '%s' "$out" | parse_checks \
+        | awk -F'\t' '$1=="pending"{print $2}' ;;
+  esac | paste -sd ', ' -
+}
+
+STATUS=""
+LAST_JSON=""
+NO_CHECKS_STREAK=0
+# If "no checks reported" persists across this many polls, conclude the repo
+# has no CI rather than waiting the full 10 minutes (CI normally registers
+# within the first ~90s).
+NO_CHECKS_MAX=3
+
+for at in "${POLL_AT[@]}"; do
+  sleep $(( at - PREV ))
+  PREV=$at
+  RAW=$(gh pr checks "$PR_URL" --json name,bucket,state,completedAt 2>&1)
+  LAST_JSON="$RAW"
+  classify_check <<< "$RAW"
+  echo "ci: poll @$at -> $STATUS"
+  case "$STATUS" in
+    PASSED)
+      echo "PASSED"
+      exit 0 ;;
+    FAILED)
+      NAMES=$(names_for "$RAW" fail)
+      echo "FAILED: $NAMES"
+      exit 1 ;;
+    NO_CHECKS)
+      NO_CHECKS_STREAK=$((NO_CHECKS_STREAK + 1))
+      if [ "$NO_CHECKS_STREAK" -ge "$NO_CHECKS_MAX" ]; then
+        echo "NO_CHECKS"
+        exit 0
+      fi
+      # CI may not have registered yet; wait for the next fixed poll.
+      ;;
+    PENDING)
+      ;;
+  esac
+done
+
+# Reached the end of the schedule.
+if [ "$STATUS" = "NO_CHECKS" ]; then
+  echo "NO_CHECKS"
+  exit 0
+fi
+
+NAMES=$(names_for "$LAST_JSON" pending)
+if [ -z "$NAMES" ]; then
+  echo "TIMEOUT: (no names available)"
+else
+  echo "TIMEOUT: $NAMES"
+fi
+exit 1
