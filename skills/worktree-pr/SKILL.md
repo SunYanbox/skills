@@ -232,15 +232,21 @@ Non-zero exit → stop and tell the user which tool (`git` / `gh`) is missing.
 
 1. See what's staged in the worktree: `git -C "<wt-path>" diff --staged` (and `git -C
    "<wt-path>" diff` if nothing is staged yet — `wtcmt` will `git add .` first anyway).
-2. **Describe the changes objectively** — what was added/changed/removed, in what area.
+2. **Capture the full diff.** Before composing the message, examine the complete set of
+   changes via `git -C "<wt-path>" diff <start-branch>...HEAD` (all changes since
+   branching). The commit message must objectively represent **every** change visible in
+   the diff — every file added/modified/deleted, every functional change, every rename.
+   Do not cherry-pick a subset of the changes; do not omit files or changes just because
+   they seem minor. A commit message that omits changes is misleading.
+3. **Describe the changes objectively** — what was added/changed/removed, in what area.
    Do not speculate about intent, motivation, or the future. Keep it factual.
-3. Read `.wt-pr/commit.md` for the commit preferences. Resolve any missing required key
+4. Read `.wt-pr/commit.md` for the commit preferences. Resolve any missing required key
    (`提交语言` especially) via the fallback chain (project config → existing commits →
    ask user). Write resolved values back into `commit.md`.
-4. Produce a **Conventional Commits** message in the configured language, e.g.
+5. Produce a **Conventional Commits** message in the configured language, e.g.
    `refactor(core): delete old parser, adjust new parser signature`. Match the repo's
    existing commit style for type/scope conventions.
-5. Set `提交` → `进行中`, then commit:
+6. Set `提交` → `进行中`, then commit:
    ```bash
    bash <skill-dir>/scripts/wtcmt "<wt-path>" "<conventional commit message"
    ```
@@ -269,13 +275,22 @@ the remote branch name the script reports.
 
 1. The PR **base** is `<start-branch>` (the branch the user was on), unless the user named a
    different target.
-2. **Describe the changes objectively** — what was added/changed/removed, in what area.
+2. **Base PR content on the full branch diff.** Examine all changes since branch creation:
+   ```bash
+   git -C "<wt-path>" diff <start-branch>...HEAD
+   ```
+   Also review the full commit list: `git -C "<wt-path>" log <start-branch>..HEAD --oneline`.
+   The PR title and body must represent **every** change in this diff — every file added,
+   modified, or deleted, every functional change. Do not write a PR that only covers the
+   most recent commit or a subset of changes. A PR that omits changes is misleading; it
+   represents the full branch.
+3. **Describe the changes objectively** — what was added/changed/removed, in what area.
    Do not speculate about intent, motivation, or the future. Keep it factual.
-3. Read `.wt-pr/commit.md` PR preferences. If `PR模板路径` exists, read that template and
+4. Read `.wt-pr/commit.md` PR preferences. If `PR模板路径` exists, read that template and
    fill it. Otherwise model the title/body on the repo's existing open or merged PRs (use
    `gh pr list --state all --limit 10` and `gh pr view <num>`). Generate title + body in the
    configured `PR语言`.
-4. Set `创建PR` → `进行中`, then:
+5. Set `创建PR` → `进行中`, then:
    ```bash
    bash <skill-dir>/scripts/wtpr "<wt-path>" "<base-branch>" "<title>" "<body>"
    ```
