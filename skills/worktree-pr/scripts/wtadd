@@ -1,0 +1,50 @@
+#!/usr/bin/env bash
+# wtadd - create a git worktree on a fresh branch.
+# Usage: wtadd <start-branch> <new-branch> <wt-path>
+#
+# Runs: git worktree add -b <new-branch> <wt-path> <start-branch>
+# The caller (the Agent) provides the full new branch name;
+# this script does NOT derive or infer the branch name.
+# ASCII stdout.
+set -u
+
+if [ $# -ne 3 ]; then
+  echo "wtadd: usage: wtadd <start-branch> <new-branch> <wt-path>"
+  exit 1
+fi
+
+START_BRANCH="$1"
+NEW_BRANCH="$2"
+WT_PATH="$3"
+
+ROOT="$(git rev-parse --show-toplevel 2>/dev/null)"
+if [ -z "$ROOT" ]; then
+  echo "wtadd: not inside a git repository"
+  exit 1
+fi
+
+if [ -z "$NEW_BRANCH" ]; then
+  echo "wtadd: new branch name is empty"
+  exit 1
+fi
+
+# --- Create the worktree ---------------------------------------------------
+if git show-ref --verify --quiet "refs/heads/$NEW_BRANCH"; then
+  echo "wtadd: branch already exists: $NEW_BRANCH"
+  exit 1
+fi
+
+if [ -e "$WT_PATH" ]; then
+  echo "wtadd: target path already exists: $WT_PATH"
+  exit 1
+fi
+
+# git worktree add resolves paths relative to cwd; run from repo root.
+if ! git -C "$ROOT" worktree add -b "$NEW_BRANCH" "$WT_PATH" "$START_BRANCH"; then
+  echo "wtadd: git worktree add failed"
+  exit 1
+fi
+
+echo "wtadd: created worktree at ${WT_PATH} on branch ${NEW_BRANCH}"
+echo "wtadd: branch=$NEW_BRANCH"
+exit 0

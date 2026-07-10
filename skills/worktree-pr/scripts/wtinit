@@ -1,0 +1,59 @@
+#!/usr/bin/env bash
+# wtinit - create the .wt-pr/ cache layout and a task doc.
+# Usage: wtinit <start-branch> <wt-name> <wt-path> <user-request>
+#
+# Creates .wt-pr/ with .gitignore (ignores everything inside), activate/, done/.
+# Idempotent on the directories. Always (re)writes the task doc
+# .wt-pr/activate/<start-branch>-<wt-name>.md in UTF-8 with all statuses [待办].
+# ASCII stdout; the task doc is UTF-8.
+set -u
+
+if [ $# -ne 4 ]; then
+  echo "wtinit: usage: wtinit <start-branch> <wt-name> <wt-path> <user-request>"
+  exit 1
+fi
+
+START_BRANCH="$1"
+WT_NAME="$2"
+WT_PATH="$3"
+USER_REQ="$4"
+
+ROOT="$(git rev-parse --show-toplevel 2>/dev/null)"
+if [ -z "$ROOT" ]; then
+  echo "wtinit: not inside a git repository"
+  exit 1
+fi
+
+WTPR="$ROOT/.wt-pr"
+ACTIVATE="$WTPR/activate"
+DONE="$WTPR/done"
+
+mkdir -p "$ACTIVATE" "$DONE" || { echo "wtinit: cannot create cache dirs"; exit 1; }
+
+# .gitignore that ignores everything under .wt-pr/. Create if missing.
+if [ ! -f "$WTPR/.gitignore" ]; then
+  printf '*\n' > "$WTPR/.gitignore" || { echo "wtinit: cannot write .gitignore"; exit 1; }
+fi
+
+DOC="$ACTIVATE/${START_BRANCH}-${WT_NAME}.md"
+
+# Write the initial task doc. UTF-8 bytes pass through the heredoc verbatim.
+cat > "$DOC" <<EOF
+- 起始分支: ${START_BRANCH}
+- 工作树名: ${WT_NAME}
+- 工作树路径: ${WT_PATH}
+- 用户要求: ${USER_REQ}
+- 步骤状态:
+  - 检查工具: [待办]
+  - 创建工作树: [待办]
+  - 复制文件: [待办]
+  - 提交: [待办]
+  - 推送: [待办]
+  - 创建PR: [待办]
+  - CI等待与修复: [待办]
+- 修复失败计数: 0
+- 清理标志: 暂不清理
+EOF
+
+echo "wtinit: created ${DOC#${ROOT}/}"
+exit 0

@@ -1,0 +1,137 @@
+#!/usr/bin/env bash
+# wtstep - read or update the step-status markers in a worktree-pr task doc.
+#   Usage:
+#     wtstep <doc>                              print every step + its status
+#     wtstep <doc> <step> <status>              set a step's status
+#     wtstep <doc> counter <set|inc|dec> [n]    set/inc/dec 修复失败计数
+#
+# The task doc's status markers ([待办]/[进行中]/[完成]/[失败]) and the failure
+# counter are maintained by hand elsewhere in the skill; that is fragile and
+# they silently drift from reality. This script is the single contract for
+# changing them: it validates the step name and status, and refuses unknown
+# inputs loudly instead of silently no-op-ing or corrupting the doc.
+#
+# Matching is done under LC_ALL=C so the UTF-8 Chinese keys are compared
+# byte-exactly regardless of the shell locale.
+# ASCII stdout.
+set -u
+
+STEPS=(检查工具 创建工作树 复制文件 提交 推送 创建PR CI等待与修复)
+STATUSES=(待办 进行中 完成 失败)
+
+usage() {
+  cat <<'EOF'
+wtstep: usage:
+  wtstep <doc>
+  wtstep <doc> <step> <status>
+  wtstep <doc> counter <set|inc|dec> [n]
+EOF
+}
+
+if [ $# -lt 1 ]; then
+  usage; exit 1
+fi
+
+DOC="$1"; shift
+if [ ! -f "$DOC" ]; then
+  echo "wtstep: task doc not found: $DOC"
+  exit 1
+fi
+if [ $# -gt 3 ]; then
+  usage; exit 1
+fi
+
+# in_list <needle> <item...> -> 0 if needle is one of the items.
+in_list() {
+  local needle="$1"; shift
+  local x
+  for x in "$@"; do [ "$x" = "$needle" ] && return 0; done
+  return 1
+}
+
+# --- read mode: print "<step>: <status>" for each step ---------------------
+if [ $# -eq 0 ]; then
+  for s in "${STEPS[@]}"; do
+    line=$(LC_ALL=C grep -m1 "^[[:space:]]*- $s:" "$DOC" 2>/dev/null)
+    st=$(printf '%s' "$line" | sed -n 's/.*\[\([^]]*\)\].*/\1/p')
+    printf '%s: %s\n' "$s" "${st:-未知}"
+  done
+  counter=$(LC_ALL=C grep -m1 '^- 修复失败计数:' "$DOC" 2>/dev/null | sed 's/.*: *//')
+  printf '修复失败计数: %s\n' "${counter:-0}"
+  exit 0
+fi
+
+ARG="$1"
+
+# --- counter mode -----------------------------------------------------------
+if [ "$ARG" = "counter" ]; then
+  op="${2:-}"; n="${3:-1}"
+  case "$op" in
+    set)
+      case "$n" in
+        ''|*[!0-9]*) echo "wtstep: counter set needs a non-negative integer"; exit 1 ;;
+      esac
+      newc="$n" ;;
+    inc|dec)
+      case "$n" in ''|*[!0-9]*) n=1 ;; esac
+      cur=$(LC_ALL=C grep -m1 '^- 修复失败计数:' "$DOC" 2>/dev/null | sed 's/.*: *//' | tr -d '[:space:]')
+      case "$cur" in ''|*[!0-9]*) cur=0 ;; esac
+      if [ "$op" = "inc" ]; then newc=$(( cur + n )); else newc=$(( cur - n )); fi
+      if [ "$newc" -lt 0 ]; then newc=0; fi ;;
+    *) echo "wtstep: counter op must be set|inc|dec (got: $op)"; exit 1 ;;
+  esac
+
+  tmp=$(mktemp 2>/dev/null) || { echo "wtstep: cannot create temp file"; exit 1; }
+  LC_ALL=C awk -v new="$newc" '
+    { if ($0 ~ "^[[:space:]]*- 修复失败计数:") print "- 修复失败计数: " new; else print }
+  ' "$DOC" > "$tmp" || { rm -f "$tmp"; echo "wtstep: edit failed"; exit 1; }
+  if ! LC_ALL=C grep -q "^[[:space:]]*- 修复失败计数: $newc$" "$tmp"; then
+    rm -f "$tmp"; echo "wtstep: 修复失败计数 line not found in $DOC"; exit 1
+  fi
+  mv -- "$tmp" "$DOC" || { rm -f "$tmp"; echo "wtstep: cannot write $DOC"; exit 1; }
+  printf '修复失败计数: %s\n' "$newc"
+  exit 0
+fi
+
+# --- step mode: <doc> <step> <status> ---------------------------------------
+STEP="$ARG"
+NEW="$2"
+if [ -z "$NEW" ]; then echo "wtstep: missing status for step $STEP"; usage; exit 1; fi
+if ! in_list "$STEP" "${STEPS[@]}"; then
+  echo "wtstep: unknown step: $STEP (known: ${STEPS[*]})"
+  exit 1
+fi
+if ! in_list "$NEW" "${STATUSES[@]}"; then
+  echo "wtstep: unknown status: $NEW (known: ${STATUSES[*]})"
+  exit 1
+fi
+
+# Replace the [..] on the matching step line (first occurrence), via a temp file.
+tmp=$(mktemp 2>/dev/null) || { echo "wtstep: cannot create temp file"; exit 1; }
+found=0
+LC_ALL=C awk -v step="$STEP" -v new="$NEW" -v foundout="" '
+  BEGIN { f = 0 }
+  {
+    if (!f && $0 ~ ("^[[:space:]]*- " step ":")) {
+      line = $0
+      sub(/\[[^]]*\]/, "[" new "]", line)
+      # if there was no bracket to substitute, append one so the marker exists
+      if (line == $0) line = line " [" new "]"
+      print line
+      f = 1
+    } else print
+  }
+  END { exit (f ? 0 : 1) }
+' "$DOC" > "$tmp"
+rc=$?
+if [ "$rc" -ne 0 ] || [ ! -s "$tmp" ]; then
+  rm -f "$tmp"
+  echo "wtstep: step not found in $DOC: $STEP"
+  exit 1
+fi
+if ! LC_ALL=C grep -q "^[[:space:]]*- ${STEP}:.*\[${NEW}\]" "$tmp"; then
+  rm -f "$tmp"; echo "wtstep: failed to update status for $STEP"; exit 1
+fi
+mv -- "$tmp" "$DOC" || { rm -f "$tmp"; echo "wtstep: cannot write $DOC"; exit 1; }
+printf '%s: %s\n' "$STEP" "$NEW"
+exit 0
