@@ -2,7 +2,7 @@
 # wtinit - create the .wt-pr/ cache layout and a task doc.
 # Usage: wtinit <start-branch> <wt-name> <wt-path> <user-request>
 #
-# Creates .wt-pr/ with .gitignore (ignores everything inside), activate/, done/.
+# Creates .wt-pr/ with .gitignore (ignores everything inside), activate/, done/, temp/.
 # Idempotent on the directories. Always (re)writes the task doc
 # .wt-pr/activate/<start-branch>-<wt-name>.md in UTF-8 with all statuses [待办].
 # ASCII stdout; the task doc is UTF-8.
@@ -27,8 +27,9 @@ fi
 WTPR="$ROOT/.wt-pr"
 ACTIVATE="$WTPR/activate"
 DONE="$WTPR/done"
+TEMP="$WTPR/temp"
 
-mkdir -p "$ACTIVATE" "$DONE" || { echo "wtinit: cannot create cache dirs"; exit 1; }
+mkdir -p "$ACTIVATE" "$DONE" "$TEMP" || { echo "wtinit: cannot create cache dirs"; exit 1; }
 
 # .gitignore that ignores everything under .wt-pr/. Create if missing.
 if [ ! -f "$WTPR/.gitignore" ]; then
