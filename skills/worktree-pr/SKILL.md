@@ -64,7 +64,8 @@ Run `wtinit` once to create the layout. It ignores itself with `.gitignore` (`*`
 ├── .gitignore          # contents: *  (ignores everything under .wt-pr/)
 ├── commit.md           # commit & PR preferences — maintained by both user and Agent
 ├── activate/           # in-progress task docs:  <start-branch>-<wt-name>.md
-└── done/               # archived task docs (only after full clean success)
+├── done/               # archived task docs (only after full clean success)
+└── temp/               # Agent temp files (commit messages, PR bodies, etc.)
 ```
 
 ### Task document
@@ -133,6 +134,28 @@ If `commit.md` is missing or lacks a required key, fall back in order: (1) proje
 files (`.commitlintrc*`, `cz-config.js`, `.github/COMMIT_TEMPLATE.md`, PR templates under
 `.github/`), (2) the naming/style of existing branches and merged PRs in the repo, (3) ask
 the user. Write what you settled on back into `commit.md` so later runs don't re-ask.
+
+#### Conflict detection
+
+When the Agent discovers that a value in `commit.md` **contradicts** observable reality
+in the repo, it must **stop and ask the user immediately** — do not silently follow
+`commit.md` and do not silently ignore it. The user's answer determines the correct
+behavior, and the Agent must update `commit.md` accordingly.
+
+Examples of contradictions the Agent should detect:
+
+- `提交语言: 英文` but existing commit messages are consistently in Chinese (or vice
+  versa).
+- `分支格式: feat/<short-desc>` but the repo's actual branch names consistently follow
+  a different pattern like `feature/<ticket>-<desc>`.
+- `PR语言: 中文` but all existing PRs in the repo use English titles and bodies.
+
+On detection, ask a concrete question:
+
+> `commit.md` says `提交语言: 英文`, but I see that all recent commits in this repo
+> use Chinese messages. Which should I follow?
+
+Then update `commit.md` with the user's answer to keep future runs consistent.
 
 ## The workflow
 
@@ -242,7 +265,11 @@ Non-zero exit → stop and tell the user which tool (`git` / `gh`) is missing.
    Do not speculate about intent, motivation, or the future. Keep it factual.
 4. Read `.wt-pr/commit.md` for the commit preferences. Resolve any missing required key
    (`提交语言` especially) via the fallback chain (project config → existing commits →
-   ask user). Write resolved values back into `commit.md`.
+   ask user). Write resolved values back into `commit.md`. **Conflict detection:** if
+   a value in `commit.md` contradicts the repo's actual commit history (e.g.
+   `提交语言: 英文` but recent commits are in Chinese), follow the
+   [conflict detection](#conflict-detection) procedure — stop and ask the user, then
+   update `commit.md` with their answer.
 5. Produce a **Conventional Commits** message in the configured language, e.g.
    `refactor(core): delete old parser, adjust new parser signature`. Match the repo's
    existing commit style for type/scope conventions.
@@ -252,7 +279,8 @@ Non-zero exit → stop and tell the user which tool (`git` / `gh`) is missing.
    ```
    For a multi-line message (subject + body) pass it as one quoted argument with embedded
    newlines. If the message contains single quotes or is otherwise awkward to quote, write
-   it to a temp file and pass `@<path>` instead. On success, `提交` → `完成`.
+   it to a file under `.wt-pr/temp/` and pass `@<path>` instead (see
+   [Temporary file conventions](#temporary-file-conventions)). On success, `提交` → `完成`.
 
 ### Step 5 — Push to remote
 
@@ -286,7 +314,11 @@ the remote branch name the script reports.
    represents the full branch.
 3. **Describe the changes objectively** — what was added/changed/removed, in what area.
    Do not speculate about intent, motivation, or the future. Keep it factual.
-4. Read `.wt-pr/commit.md` PR preferences. If `PR模板路径` exists, read that template and
+4. Read `.wt-pr/commit.md` PR preferences. **Conflict detection:** if `PR语言`
+   or `PR格式` in `commit.md` contradicts the repo's existing PR style (check with
+   `gh pr list --state all --limit 10`), follow the
+   [conflict detection](#conflict-detection) procedure — stop and ask the user.
+   If `PR模板路径` exists, read that template and
    fill it. Otherwise model the title/body on the repo's existing open or merged PRs (use
    `gh pr list --state all --limit 10` and `gh pr view <num>`). Generate title + body in the
    configured `PR语言`.
@@ -295,7 +327,8 @@ the remote branch name the script reports.
    bash <skill-dir>/scripts/wtpr "<wt-path>" "<base-branch>" "<title>" "<body>"
    ```
    `wtpr` prints the new PR URL. Capture it. For long or quote-heavy bodies, write the body
-   to a file and pass `@<path>` as the body arg. Set `创建PR` → `完成`.
+   to a file under `.wt-pr/temp/` and pass `@<path>` as the body arg (see
+   [Temporary file conventions](#temporary-file-conventions)). Set `创建PR` → `完成`.
 
 ### Step 7 — Wait for CI and fix failures
 
@@ -347,6 +380,41 @@ paused), **leave the doc in `activate/`** so it can be resumed. You may set `清
 The throwaway worktree itself is left in place across the run (later steps operate in it).
 Removing it is optional cleanup the user can request afterward; if asked, run
 `git worktree remove --force "<wt-path>"`.
+
+## Temporary file conventions
+
+The Agent often needs to write a commit message or PR body to a temp file before
+passing it to `wtcmt` or `wtpr` via the `@path` syntax. **Always use
+`.wt-pr/temp/`** as the temp directory — it is created by `wtinit`, is gitignored
+by the `.wt-pr/.gitignore`, and is repo-local.
+
+### Why not system temp (`$TMPDIR`, `%TEMP%`, `/tmp`)?
+
+On Windows the system temp directory (`C:\Users\…\AppData\Local\Temp`) may be on
+a **different drive** from the repo (`E:\…`). Git worktree paths and `@`-file
+references must be reachable from the worktree's working directory; cross-drive
+paths can confuse tools or require different quoting. A repo-local temp dir
+avoids this entirely and keeps cleanup trivial (just delete the file after use).
+
+### Usage pattern
+
+```bash
+# Write the commit message to a temp file
+MSGFILE=".wt-pr/temp/commit-$(printf '%04x' $RANDOM).txt"
+cat > "$MSGFILE" <<'EOF'
+feat(scope): add new feature
+
+Detailed body here.
+EOF
+
+# Commit using the temp file
+bash <skill-dir>/scripts/wtcmt "<wt-path>" "@$MSGFILE"
+
+# Clean up when done (optional — the whole temp/ dir is gitignored)
+rm -f "$MSGFILE"
+```
+
+The same pattern applies to PR bodies with `wtpr`.
 
 ## Conventions & error handling
 
