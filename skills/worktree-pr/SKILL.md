@@ -52,7 +52,8 @@ deterministic interface the skill is built around.
 | `wtcmt` | `<wt-path> <message>` | In the worktree: `git add .` then `git commit`. Message may be multi-line. Prefix the message with `@` to instead read it from a file: `@path/to/msg.txt`. |
 | `wtpush` | `<wt-path> <mode>` | Push the worktree's branch to origin. `mode` = `https` or `ssh` (ssh temporarily swaps origin to an SSH URL, then restores it). 3 internal retries per call. |
 | `wtpr` | `<wt-path> <base-branch> <title> <body>` | `gh pr create --base <base>`. Title/body may be multi-line. Prefix either with `@` to read from a file. Prints the new PR URL. |
-| `wtciwait` | <PR_URL> | Polls CI at 5s, 30s, 90s, 5m, 10m. Prints `PASSED` (exit 0), `FAILED: <names>` (exit 1), `NO_CHECKS` (exit 0, no CI configured), or `TIMEOUT: <names>` (exit 1). **Run in the background.** |
+| `wtciwait` | <PR_URL> | Polls CI at 5s, 30s, 90s, 5m, 10m. Prints `PASSED` (exit 0), `FAILED: <names>` (exit 1), `NO_CHECKS` (exit 0, no CI configured), `TIMEOUT: <names>` (exit 1), or `ERROR: <reason>` (exit 1 — `gh` itself failed, e.g. auth/network; do **not** treat as passed). **Run in the background.** |
+| `wtstep` | `<doc> [step] [status]` · `<doc> counter <set\|inc\|dec> [n]` | Reads (`<doc>` alone) or updates a step status / the failure counter in the task doc. Validates step + status; rejects unknown values so the markers can't silently drift. Use this instead of hand-editing the markers. |
 
 ## The state files (`.wt-pr/`)
 
@@ -69,9 +70,12 @@ Run `wtinit` once to create the layout. It ignores itself with `.gitignore` (`*`
 ### Task document
 
 `wtinit` writes the initial task doc at `.wt-pr/activate/<start-branch>-<wt-name>.md` in
-UTF-8 with all step statuses `[待办]`. **After every step, update this doc** by editing the
-relevant status (`待办` → `进行中` → `完成`, or `失败` on error) and bumping the failure
-counter when a CI fix round is pushed. The exact schema (keep these keys and values):
+UTF-8 with all step statuses `[待办]`. **After every step, update this doc with `wtstep`**
+(not a free-form edit) — it validates the step name and status, so the markers can't silently
+drift from reality and the resume logic in Step 0 stays trustworthy. Set a step's status
+(`待办` → `进行中` → `完成`, or `失败` on error) with `wtstep <doc> <step> <status>`, and bump
+the failure counter with `wtstep <doc> counter inc` after each CI fix round is pushed. The
+exact schema (keep these keys and values):
 
 ```markdown
 - 起始分支: <branch>
@@ -92,6 +96,17 @@ counter when a CI fix round is pushed. The exact schema (keep these keys and val
 
 Status values: `待办` (pending) · `进行中` (in progress) · `完成` (done) · `失败` (failed).
 清理标志 values: `暂不清理` (no cleanup) · `待清理` (to clean) · `已清理` (cleaned) · `已存档` (archived).
+清理标志 is a plain line the agent edits directly; the step statuses and `修复失败计数` go through `wtstep`:
+
+```bash
+# read all step statuses + the counter
+DOC=.wt-pr/activate/<start-branch>-<wt-name>.md
+bash <skill-dir>/scripts/wtstep "$DOC"
+# mark a step done
+bash <skill-dir>/scripts/wtstep "$DOC" 推送 完成
+# bump the CI-fix-failure counter after a fix round
+bash <skill-dir>/scripts/wtstep "$DOC" counter inc
+```
 
 ### Preferences file `commit.md`
 
@@ -252,13 +267,17 @@ stdout:
 
 - `PASSED` → CI is green. Skip to Step 8.
 - `NO_CHECKS` → no CI is configured for this repo. Treat as success. Skip to Step 8.
+- `ERROR: <reason>` → `gh` itself failed (auth, network, PR not found). This is **not** a check failure and **not** a pass — do **not** enter the fix loop as if code were broken. Set `CI等待与修复` → `进行中` stays, re-run `wtciwait` once after fixing the cause (e.g. `gh auth login`, network). If it keeps erroring, set `CI等待与修复` → `失败`, report the reason + task-doc path, and hand control to the user.
 - `FAILED: <names>` or `TIMEOUT: <names>` → some checks didn't pass. Go into the fix loop:
   1. Inspect the failing checks: `gh pr checks "<PR_URL>"` and, for log detail,
      `gh run view <run-id> --log-failed` (or reuse the `gh-actions-debug` skill for a fast
      root-cause). Find the concrete failure. Use the `codegraph` tools to locate the code.
   2. Make a targeted fix **in the worktree** (`<wt-path>`), not the user's main tree.
   3. Re-commit (`wtcmt`) and re-push (`wtpush <wt-path> https` with ssh fallback as needed).
-  4. **Increment `修复失败计数`** in the task doc.
+  4. **Increment `修复失败计数`** in the task doc:
+     ```bash
+     bash <skill-dir>/scripts/wtstep <doc> counter inc
+     ```
   5. Re-run `wtciwait` in the background. Repeat.
 
   **Hard limit: 3 fix rounds.** If after the 3rd push CI still isn't green, **stop**: set

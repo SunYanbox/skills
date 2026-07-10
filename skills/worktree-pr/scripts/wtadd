@@ -34,11 +34,17 @@ BRANCH_PATTERN=""
 if [ -f "$ROOT/.wt-pr/commit.md" ]; then
   # Read the first line beginning with the 分支格式 key (UTF-8 literal),
   # take the part after the colon, strip leading spaces, split on comma, keep
-  # the first pattern.
-  BRANCH_PATTERN=$(grep -m1 '^分支格式:' "$ROOT/.wt-pr/commit.md" 2>/dev/null \
+  # the first pattern. Match under LC_ALL=C so the multi-byte key is compared
+  # byte-exactly regardless of the shell's locale; without this, a non-UTF-8
+  # or mismatched locale would silently miss the key and fall back to the
+  # default branch pattern.
+  BRANCH_PATTERN=$(LC_ALL=C grep -m1 '^分支格式:' "$ROOT/.wt-pr/commit.md" 2>/dev/null \
     | sed 's/^[^:]*:[[:space:]]*//' \
     | awk -F',' '{print $1}' \
     | sed 's/[[:space:]]*$//' )
+  if [ -z "$BRANCH_PATTERN" ] && [ -s "$ROOT/.wt-pr/commit.md" ]; then
+    echo "wtadd: branch-format key not found in .wt-pr/commit.md; using default branch pattern" >&2
+  fi
 fi
 if [ -z "$BRANCH_PATTERN" ]; then
   BRANCH_PATTERN="wt/<wt-name>"

@@ -5,13 +5,13 @@
 # https mode: push using the current remote URL (usually served via gh's
 #   credential helper). Retry up to 3 times.
 # ssh mode: if origin is an https URL, temporarily rewrite it to ssh
-#   (git@host:owner/repo.git), push (retry 3x), then ALWAYS restore the
-#   original URL. If origin is already ssh, just push.
+#   (git@host:owner/repo.git, or ssh://git@host:port/owner/repo.git when origin
+#   uses a non-default port), push (retry 3x), then ALWAYS restore the original
+#   URL. If origin is already ssh, just push.
 # ASCII stdout.
 set -u
 
 RETRIES=3
-HTTPS_HOST_CACHE=""
 
 if [ $# -ne 2 ]; then
   echo "wtpush: usage: wtpush <wt-path> <mode>"
@@ -49,16 +49,41 @@ if [ -z "$ORIGINAL_URL" ]; then
 fi
 
 # https -> ssh URL converter. Handles:
-#   https://host/owner/repo(.git)? and https://user:token@host/owner/repo(.git)?
+#   https://host/owner/repo(.git)?
+#   https://user:token@host/owner/repo(.git)?   (userinfo is dropped)
+#   https://host:port/owner/repo(.git)?         (see port handling below)
 https_to_ssh() {
-  local url="$1"
-  # strip userinfo
+  local url="$1" hostport host port rest
   url="${url#https://}"
   url="${url#http://}"
-  local host="${url%%/*}"
-  local rest="${url#*/}"          # owner/repo(.git)?
+  hostport="${url%%/*}"          # [user:token@]host[:port]
+  rest="${url#*/}"               # owner/repo(.git)?  (unchanged if no slash)
   rest="${rest%.git}"
-  printf 'git@%s:%s.git' "$host" "$rest"
+  hostport="${hostport##*@}"     # actually drop userinfo (everything up to @)
+  case "$hostport" in
+    *:*) host="${hostport%:*}"; port="${hostport##*:}" ;;
+    *)   host="$hostport"; port="" ;;
+  esac
+  # A port that is the web default (443 for https, 80 for http) is almost
+  # certainly not the SSH port, so drop it and use the scp-like form. Keep any
+  # other port in a valid ssh://git@host:port/... URL so the result is at least
+  # syntactically valid SSH (the pre-fix output "git@host:443:owner/repo.git"
+  # was not). The user can correct the SSH port if it differs from the web port.
+  case "$port" in
+    ""|443|80) printf 'git@%s:%s.git'       "$host" "$rest" ;;
+    *)         printf 'ssh://git@%s:%s/%s.git' "$host" "$port" "$rest" ;;
+  esac
+}
+
+is_valid_ssh() {
+  # Reject obviously malformed conversions before we hand them to git.
+  case "$1" in
+    ssh://*)
+      [ "${1#ssh://}" != "$1" ] && return 0
+      return 1 ;;
+    git@*:*) return 0 ;;    # git@host:path
+    *) return 1 ;;
+  esac
 }
 
 is_ssh_url() {
@@ -111,19 +136,29 @@ fi
 
 # Switch origin to ssh, push, always restore.
 SSH_URL=$(https_to_ssh "$ORIGINAL_URL")
+if ! is_valid_ssh "$SSH_URL"; then
+  echo "wtpush: cannot derive a valid ssh url from: $ORIGINAL_URL (got: $SSH_URL)"
+  restore_url
+  exit 1
+fi
 git -C "$WT_PATH" remote set-url origin "$SSH_URL" >/dev/null 2>&1 || {
   echo "wtpush: cannot set ssh remote url"
   restore_url
   exit 1
 }
 
+# If interrupted while origin is the SSH URL, restore the original before exiting.
+trap 'restore_url; echo "wtpush: interrupted, origin restored"' EXIT INT TERM
+
 if do_push "$BRANCH"; then
+  trap - EXIT INT TERM
   restore_url
   echo "wtpush: pushed $BRANCH (ssh)"
   echo "wtpush: branch=$BRANCH"
   exit 0
 fi
 
+trap - EXIT INT TERM
 restore_url
 echo "wtpush: ssh push failed after $RETRIES attempts"
 exit 1
