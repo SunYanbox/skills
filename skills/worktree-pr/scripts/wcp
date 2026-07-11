@@ -138,7 +138,7 @@ for src in "$@"; do
   walk "$src"
 done
 
-echo "wcp: copied=$copied skipped=$skipped errors=$errors"
+echo "wcp: copied=$copied skipped=$skipped (identical) errors=$errors"
 if [ "$errors" -gt 0 ]; then
   exit 1
 fi

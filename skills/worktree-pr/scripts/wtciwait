@@ -8,6 +8,8 @@
 # Outcomes (ASCII stdout, then exit):
 #   PASSED                       exit 0  all checks pass (or skipped)
 #   NO_CHECKS                    exit 0  repo has no CI (no checks ever appear)
+#   MERGED                       exit 0  PR was merged (detected during poll)
+#   PR_CLOSED                    exit 1  PR was closed without merging
 #   FAILED: <name>, <name>       exit 1  one or more checks failed (or needs action)
 #   TIMEOUT: <name>, <name>      exit 1  still pending/unknown after the last poll
 #   ERROR: <reason>              exit 1  gh itself failed (auth/network/not found)
@@ -93,6 +95,25 @@ trap 'rm -f "$ERRFILE"' EXIT
 for at in "${POLL_AT[@]}"; do
   sleep $(( at - PREV ))
   PREV=$at
+
+  # Check PR lifecycle state before polling CI.
+  PR_STATE=$(gh pr view "$PR_URL" --json state --jq '.state' 2>/dev/null) || true
+  case "$PR_STATE" in
+    MERGED) echo "MERGED"; exit 0 ;;
+    CLOSED) echo "PR_CLOSED"; exit 1 ;;
+    '')
+      # gh pr view failed (auth/network). Count toward ERROR_STREAK so the
+      # next gh pr checks failure will trigger an early exit with a clearer message.
+      ERROR_STREAK=$(( ERROR_STREAK + 1 ))
+      echo "ci: poll @$at -> gh pr view failed (auth/network?)"
+      if [ "$ERROR_STREAK" -ge "$ERROR_MAX" ]; then
+        echo "ERROR: gh pr view failed - cannot read PR state (auth/network issue?)"
+        exit 1
+      fi
+      # Skip the gh pr checks call this round — it would fail the same way.
+      continue
+      ;;
+  esac
 
   OUT=$(gh pr checks "$PR_URL" --json name,bucket --jq '.[] | [.bucket, .name] | @tsv' 2>"$ERRFILE")
   RC=$?

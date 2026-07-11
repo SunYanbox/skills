@@ -38,12 +38,18 @@ fi
 
 DOC="$ACTIVATE/${START_BRANCH}-${WT_NAME}.md"
 
+# Timestamp for the task doc (ISO 8601 UTC).
+TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null \
+  || date +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null \
+  || printf 'UNKNOWN')
+
 # Write the initial task doc. UTF-8 bytes pass through the heredoc verbatim.
 cat > "$DOC" <<EOF
 - 起始分支: ${START_BRANCH}
 - 工作树名: ${WT_NAME}
 - 工作树路径: ${WT_PATH}
 - 用户要求: ${USER_REQ}
+- 创建时间: ${TIMESTAMP}
 - 步骤状态:
   - 检查工具: [待办]
   - 创建工作树: [待办]
