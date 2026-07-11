@@ -2,15 +2,15 @@
 
 ## Step Names (枚举)
 
-| 步骤名 | English | Description |
-|--------|---------|-------------|
-| 检查工具 | Tool check | Verify `git` and `gh` are on PATH |
-| 创建工作树 | Create worktree | `git worktree add` on a new branch |
-| 复制文件 | Copy files | Diff-copy changed files into the worktree |
-| 提交 | Commit | `git add -A && git commit` in the worktree |
-| 推送 | Push | Push the worktree's branch to origin |
-| 创建PR | Create PR | `gh pr create` |
-| CI等待与修复 | CI wait & fix | Poll CI; if red, fix → re-commit → re-push (max 3 rounds) |
+| 步骤名 | English | Script | Description |
+|--------|---------|--------|-------------|
+| 检查工具 | Tool check | `ghchk` | Verify `git` and `gh` are on PATH |
+| 创建工作树 | Create worktree | `wtadd` | Create a new worktree on a fresh branch |
+| 复制文件 | Copy files | `wcp` | Diff-copy changed files into the worktree |
+| 提交 | Commit | `wtcmt` | Stage and commit in the worktree (idempotent) |
+| 推送 | Push | `wtpush` | Push the worktree's branch to origin |
+| 创建PR | Create PR | `wtpr` | Open a pull request via `gh` |
+| CI等待与修复 | CI wait & fix | `wtciwait` | Poll CI; if red, fix → re-commit → re-push (max 3 rounds) |
 
 ## Status Values (枚举)
 
@@ -52,7 +52,7 @@
 
 ## Status Update Rules (硬性合约)
 
-**禁止使用 Bash 更新状态**，必须通过文件编辑工具直接修改任务文档。
+状态更新必须通过 **Edit** 工具直接修改任务文档，不得用 `sed`/`awk` 等 Bash 命令绕行。
 
 ### 操作流程
 
@@ -82,9 +82,3 @@
 `清理标志` 是普通文本行，同样用 Edit 工具直接替换：
 - `- 清理标志: 暂不清理` → `- 清理标志: 待清理`
 - `- 清理标志: 暂不清理` → `- 清理标志: 已存档`
-
-### Edit 工具的隐式验证
-
-Edit 工具要求 `old_string` 精确匹配，这本身就提供了验证：
-- 若步骤名写错，Edit 找不到匹配行会报错
-- 若状态值写错，替换结果不符合预期时 Read 验证会发现
