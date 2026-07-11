@@ -34,6 +34,11 @@ Decide tool choice by **capability coverage**, not blanket prohibitions:
 ## Bundled Scripts
 
 `<skill-dir>` = absolute path of the directory containing this `SKILL.md`.
+Substitute it everywhere (e.g. `bash /abs/path/scripts/ghchk`). When the repo
+is the skills repo itself and you are at its root,
+`skills/worktree-pr/scripts/...` also works. Keep paths with spaces as a single
+quoted argument; scripts handle it.
+
 All scripts print ASCII English to stdout, aimed at the Agent. Success → exit 0;
 failure → non-zero + a short reason on stderr.
 
@@ -65,6 +70,10 @@ see [`references/status-schema.md`](references/status-schema.md).
 For **commit.md schema** and **preference resolution**, see
 [`references/preferences.md`](references/preferences.md).
 
+For **step-by-step procedural details** (branch-style commands, scope-mapping
+examples, commit message style, PR modeling, CI fix tips, non-success handling),
+see [`references/step-details.md`](references/step-details.md).
+
 ## The Workflow
 
 Run steps in order. Update the task doc after every step (Edit tool + Read verify).
@@ -79,6 +88,9 @@ Run steps in order. Update the task doc after every step (Edit tool + Read verif
 script — scripts with idempotency checks (`wtcmt`) will safely skip already-done
 work. Update the doc to reflect reality before proceeding.
 
+For **which in-progress doc to resume vs. start new**, see the A/B decision
+tree in [`references/resume-logic.md`](references/resume-logic.md).
+
 If no in-progress doc exists and user didn't specify a file scope → ask which
 files to include before proceeding to Step 1.
 
@@ -89,8 +101,8 @@ files to include before proceeding to Step 1.
 
 ### Step 2 — Name the branch, create the worktree
 
-- [ ] Resolve branch style from repo's existing branches. Record in `commit.md` under `分支格式`
-- [ ] Generate branch name from `分支格式` + user's change description
+- [ ] Resolve branch style from repo's existing branches (`git branch -a`, `git for-each-ref --format='%(refname:short)' refs/heads refs/remotes`). Record in `commit.md` under `分支格式`
+- [ ] Generate branch name from `分支格式` + user's change description (substitute `<short-desc>` with concise English hyphenated description; omit/fill `<ticket>` if applicable)
 - [ ] Generate wt-name: `printf '%04x-%04x\n' $RANDOM $RANDOM`
 - [ ] Pick wt-path: `<repo-root>/.wt-pr/worktrees/<wt-name>`
 - [ ] `bash <skill-dir>/scripts/wtinit "<start>" "<wt-name>" "<wt-path>" "<user-request>"`
@@ -100,7 +112,7 @@ files to include before proceeding to Step 1.
 
 ### Step 3 — Resolve scope & copy files
 
-- [ ] Map user's scope to concrete file/dir paths (relative to repo root). Ask if unsure.
+- [ ] Map user's natural-language scope to concrete file/dir paths (relative to repo root). If cannot resolve confidently → ask user, do not guess.
 - [ ] Mark `复制文件` → `进行中`
 - [ ] `bash <skill-dir>/scripts/wcp "<wt-path>" "path/one" "dir/two" …`
 - [ ] Optionally verify: `git -C "<wt-path>" status --short`
@@ -108,14 +120,15 @@ files to include before proceeding to Step 1.
 
 ### Step 4 — Generate commit message & commit
 
+- [ ] Check staged content: `git -C "<wt-path>" diff --staged` (or `git -C "<wt-path>" diff` if nothing staged yet)
 - [ ] Capture full diff: `git -C "<wt-path>" diff <start-branch>...HEAD`
 - [ ] Describe changes objectively — every file, every functional change. No speculation.
 - [ ] Read `.wt-pr/commit.md` for preferences. Resolve missing keys via fallback chain (see `references/preferences.md`). Run conflict detection — **if a contradiction is found, stop and ask the user before proceeding**.
-- [ ] Produce Conventional Commits message in configured language
+- [ ] Produce Conventional Commits message in configured language, matching repo's existing type/scope conventions
 - [ ] Mark `提交` → `进行中`
 - [ ] `bash <skill-dir>/scripts/wtcmt "<wt-path>" "<message>" "<start-branch>"`
   - `ALREADY_COMMITTED` → step already done; proceed
-- [ ] If message is awkward to quote → write to `.wt-pr/temp/` file, pass `@<path>`
+- [ ] If message is awkward to quote → write to `.wt-pr/temp/` file, pass `@<path>`. Multi-line messages can be passed as one quoted arg with embedded newlines.
 - [ ] Mark `提交` → `完成`
 
 ### Step 5 — Push to remote
@@ -123,16 +136,17 @@ files to include before proceeding to Step 1.
 - [ ] `bash <skill-dir>/scripts/wtpush "<wt-path>" https`
 - [ ] If fails → `bash <skill-dir>/scripts/wtpush "<wt-path>" ssh`
 - [ ] Both fail → mark `推送` → `失败`, report error + doc path, hand control to user
-- [ ] Mark `推送` → `完成`
+- [ ] On success → mark `推送` → `完成`, capture remote branch name reported by script
 
 ### Step 6 — Create the pull request
 
 - [ ] Base = `<start-branch>` (or user-specified target)
 - [ ] Capture full diff + commit list: `git -C "<wt-path>" diff <start>...HEAD` and `git log <start>..HEAD --oneline`
-- [ ] Describe changes objectively — represent **every** change in the PR
-- [ ] Read `.wt-pr/commit.md` PR preferences. Run conflict detection on `PR语言`/`PR格式` — **if a contradiction is found, stop and ask the user before proceeding**.
+- [ ] Describe changes objectively — represent **every** change in the PR (every file added/modified/deleted, every functional change)
+- [ ] Read `.wt-pr/commit.md` PR preferences. If `PR模板路径` exists → read and fill that template. Otherwise model title/body on repo's existing PRs (`gh pr list --state all --limit 10`, `gh pr view <num>`). Generate in configured `PR语言`.
+- [ ] Run conflict detection on `PR语言`/`PR格式` — check existing PRs with `gh pr list --state all --limit 10`. **If a contradiction is found, stop and ask the user before proceeding**.
 - [ ] Mark `创建PR` → `进行中`
-- [ ] `bash <skill-dir>/scripts/wtpr "<wt-path>" "<base>" "<title>" "<body>"`
+- [ ] `bash <skill-dir>/scripts/wtpr "<wt-path>" "<base>" "<title>" "<body>"` — for long/quote-heavy bodies, write to `.wt-pr/temp/` file, pass `@<path>` as body arg
 - [ ] Capture PR URL. Mark `创建PR` → `完成`
 
 ### Step 7 — Wait for CI & fix failures
@@ -151,7 +165,7 @@ When background task completes, read stdout:
 
 **Fix loop** (max 3 rounds):
 
-1. Inspect failing checks: `gh pr checks "<PR_URL>"`, `gh run view <id> --log-failed`
+1. Inspect failing checks: `gh pr checks "<PR_URL>"`, `gh run view <id> --log-failed`. For faster root-cause, reuse the `gh-actions-debug` skill. Use `codegraph` tools to locate the fix target.
 2. Make targeted fix **in the worktree** (not user's main tree)
 3. Re-commit (`wtcmt "<wt-path>" "<message>" "<start-branch>"`) — pass `<start-branch>` for idempotency (ALREADY_COMMITTED if nothing new staged) — and re-push (`wtpush`)
 4. Increment `修复失败计数` in task doc (Edit: `N` → `N+1`; Read to verify)
@@ -167,13 +181,15 @@ Only on full success (all steps completed, CI green / NO_CHECKS / MERGED):
 - [ ] In moved doc: `清理标志` → `已存档`, `CI等待与修复` → `完成`
 - [ ] Tell user the PR URL + task archived
 
-Otherwise leave doc in `activate/` for resumption. Worktree removal is optional:
-`git worktree remove --force "<wt-path>"`.
+Otherwise leave doc in `activate/` for resumability. Set `清理标志` → `待清理`
+if task is paused/failed. Concurrency is the user's responsibility — the skill
+takes no locks. Worktree removal is optional: `git worktree remove --force "<wt-path>"`.
 
 ## Temp File Conventions
 
 Always use `.wt-pr/temp/` for temp files (commit messages, PR bodies). It is
-repo-local (avoids cross-drive issues on Windows), created by `wtinit`,
+repo-local (avoids cross-drive issues on Windows — see
+`references/step-details.md` for rationale), created by `wtinit`,
 and gitignored.
 
 ```bash
