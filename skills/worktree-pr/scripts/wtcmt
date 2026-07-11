@@ -1,20 +1,27 @@
 #!/usr/bin/env bash
 # wtcmt - commit all changes in a worktree.
-# Usage: wtcmt <wt-path> <message>
+# Usage: wtcmt <wt-path> <message> [<start-branch>]
 #
 # In <wt-path>: git add . ; git commit -m "<message>"
 # <message> may be multi-line. If <message> starts with '@', the rest is treated
 # as a file path whose contents are the commit message (git commit -F).
+#
+# Optional <start-branch>: enables idempotency check. After git add -A, if
+# nothing is staged and <start-branch> is provided, checks whether a commit
+# already exists on top of <start-branch>. If so, outputs ALREADY_COMMITTED
+# (exit 0) instead of erroring. Without <start-branch>, the old behavior
+# ("nothing staged to commit", exit 1) is preserved.
 # ASCII stdout.
 set -u
 
-if [ $# -ne 2 ]; then
-  echo "wtcmt: usage: wtcmt <wt-path> <message>"
+if [ $# -lt 2 ] || [ $# -gt 3 ]; then
+  echo "wtcmt: usage: wtcmt <wt-path> <message> [<start-branch>]"
   exit 1
 fi
 
 WT_PATH="$1"
 MSG="$2"
+START_BRANCH="${3:-}"
 
 if [ ! -d "$WT_PATH" ]; then
   echo "wtcmt: worktree path not found: $WT_PATH"
@@ -31,6 +38,14 @@ git -C "$WT_PATH" add -A || { echo "wtcmt: git add failed"; exit 1; }
 # Detect whether there is anything staged to commit.
 if git -C "$WT_PATH" diff --cached --quiet HEAD 2>/dev/null \
    && [ -z "$(git -C "$WT_PATH" diff --cached --name-only --diff-filter=ACMRT 2>/dev/null)" ]; then
+  # Nothing new to stage. If start-branch was provided, check whether a
+  # commit already exists on top of it — if so, this step is already done.
+  if [ -n "$START_BRANCH" ]; then
+    if [ -n "$(git -C "$WT_PATH" log "${START_BRANCH}..HEAD" --oneline 2>/dev/null)" ]; then
+      echo "wtcmt: ALREADY_COMMITTED"
+      exit 0
+    fi
+  fi
   echo "wtcmt: nothing staged to commit"
   exit 1
 fi
