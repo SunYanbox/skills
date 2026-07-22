@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+# ghchk - check that git and gh are on PATH.
+# Usage: ghchk
+# Exit 0 if both present, exit 1 otherwise. ASCII stdout only.
+set -u
+
+missing=""
+for tool in git gh; do
+  if ! command -v "$tool" >/dev/null 2>&1; then
+    missing="$missing $tool"
+  fi
+done
+
+if [ -n "$missing" ]; then
+  echo "ghchk: missing tools:$missing"
+  exit 1
+fi
+
+echo "ghchk: ok"
+exit 0
