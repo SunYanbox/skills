@@ -17,7 +17,12 @@ npx skills add SunYanbox/skills
 |------|------|
 | [commit-formatter-zh-cn](skills/commit-formatter-zh-cn/SKILL.md) | 基于 Conventional Commits 规范格式化 Git 提交信息——type/scope 使用英文，description/body/footer 使用中文 |
 | [gh-actions-debug](skills/gh-actions-debug/SKILL.md) | 快速调试 GitHub Actions 工作流失败——单个命令获取日志、错误信息和工作流 YAML |
+| [pr-pilot](skills/pr-pilot/SKILL.md) | 一键创建 PR，自动分析项目偏好、AI 生成提交信息与 PR 内容，通过临时 worktree 完成创建 |
 | [worktree-pr](skills/worktree-pr/SKILL.md) | 将未提交的更改隔离到独立的 Pull Request 中——使用临时 git worktree 提交、推送、创建 PR 并监控 CI 直至通过 |
+
+### pr-pilot
+
+自动化 PR 创建全流程，AI 生成内容。分析项目习惯（分支格式、提交风格、PR 语言），经你确认后，基于这些习惯生成分支名、提交信息、PR 标题和正文。通过一个脚本命令自动创建临时 worktree、复制文件、提交、推送并创建 PR——中断后支持从中断处继续。
 
 ### commit-formatter-zh-cn
 
