@@ -20,6 +20,7 @@ npx skills add SunYanbox/skills
 | [gh-actions-debug](skills/gh-actions-debug/SKILL.md) | Debugs GitHub Actions workflow failures fast — fetches logs, errors, and workflow YAML with a single command |
 | [pr-pilot](skills/pr-pilot/SKILL.md) | One-click PR creation with project-aware AI generation — learns conventions, generates content, creates PR via throwaway worktree |
 | [worktree-pr](skills/worktree-pr/SKILL.md) | Isolate uncommitted changes into a pull request using a throwaway git worktree — commit, push, open PR, and babysit CI to green |
+| [pdf-production](skills/pdf-production/SKILL.md) | PDF generation and processing — three production lines (Report/Academic/Process) with built-in OFL fonts, layout conventions, and quality verification |
 
 ### pr-pilot
 
