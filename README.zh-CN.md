@@ -19,6 +19,7 @@ npx skills add SunYanbox/skills
 | [gh-actions-debug](skills/gh-actions-debug/SKILL.md) | 快速调试 GitHub Actions 工作流失败——单个命令获取日志、错误信息和工作流 YAML |
 | [pr-pilot](skills/pr-pilot/SKILL.md) | 一键创建 PR，自动分析项目偏好、AI 生成提交信息与 PR 内容，通过临时 worktree 完成创建 |
 | [worktree-pr](skills/worktree-pr/SKILL.md) | 将未提交的更改隔离到独立的 Pull Request 中——使用临时 git worktree 提交、推送、创建 PR 并监控 CI 直至通过 |
+| [pdf-production](skills/pdf-production/SKILL.md) | PDF 生成与处理——三条生产线（Report/Academic/Process），内置 OFL 字体、版式规范与质量校验 |
 
 ### pr-pilot
 
