@@ -15,15 +15,21 @@ npx skills add SunYanbox/skills
 
 | 技能 | 描述 |
 |------|------|
-| [commit-formatter-zh-cn](skills/commit-formatter-zh-cn/SKILL.md) | 基于 Conventional Commits 规范格式化 Git 提交信息——type/scope 使用英文，description/body/footer 使用中文 |
-| [gh-actions-debug](skills/gh-actions-debug/SKILL.md) | 快速调试 GitHub Actions 工作流失败——单个命令获取日志、错误信息和工作流 YAML |
-| [pr-pilot](skills/pr-pilot/SKILL.md) | 一键创建 PR，自动分析项目偏好、AI 生成提交信息与 PR 内容，通过临时 worktree 完成创建 |
-| [worktree-pr](skills/worktree-pr/SKILL.md) | 将未提交的更改隔离到独立的 Pull Request 中——使用临时 git worktree 提交、推送、创建 PR 并监控 CI 直至通过 |
+| [commit-formatter-zh-cn](skills/commit-formatter-zh-cn/SKILL.md) | 基于 Conventional Commits 规范格式化 Git 提交信息——type/scope 使用英文，description/body/footer 使用中文 |
+| [commit-objectively](skills/commit-objectively/SKILL.md) | 严格基于代码差异生成并执行 Git 提交——暂存变更、从 diff 生成客观提交信息、经用户审阅后提交 |
+| [gh-actions-debug](skills/gh-actions-debug/SKILL.md) | 快速调试 GitHub Actions 工作流失败——单个命令获取日志、错误信息和工作流 YAML |
+| [pr-pilot](skills/pr-pilot/SKILL.md) | 一键创建 PR，自动分析项目偏好、AI 生成提交信息与 PR 内容，通过临时 worktree 完成创建 |
+| [pr-objectively](skills/pr-objectively/SKILL.md) | 严格基于代码差异生成 Pull Request 内容——收集项目上下文（PR 模板、标签、近期 PR）、生成客观的 PR 标题/正文/标签、经用户审阅后创建 PR |
+| [worktree-pr](skills/worktree-pr/SKILL.md) | 将未提交的更改隔离到独立的 Pull Request 中——使用临时 git worktree 提交、推送、创建 PR 并监控 CI 直至通过 |
 | [pdf-production](skills/pdf-production/SKILL.md) | PDF 生成与处理——三条生产线（Report/Academic/Process），内置 OFL 字体、版式规范与质量校验 |
 
 ### pr-pilot
 
 自动化 PR 创建全流程，AI 生成内容。分析项目习惯（分支格式、提交风格、PR 语言），经你确认后，基于这些习惯生成分支名、提交信息、PR 标题和正文。通过一个脚本命令自动创建临时 worktree、复制文件、提交、推送并创建 PR——中断后支持从中断处继续。
+
+### pr-objectively
+
+严格基于目标基准分支的代码差异生成 Pull Request 内容。收集项目上下文（PR 模板、标签、近期 PR）以生成客观的 PR 标题、正文和标签集，经你审阅后执行 `gh pr create`。内容完全来自 diff——而非来自你的描述或推断——使 PR 易于审阅，无需记住对话上下文。
 
 ### commit-formatter-zh-cn
 
@@ -33,6 +39,10 @@ npx skills add SunYanbox/skills
 - **自动模式**：读取 `git diff` 分析变更并生成提交信息
 
 采用 Conventional Commits 标准类型（`feat`、`fix`、`docs` 等），描述使用中文。
+
+### commit-objectively
+
+严格基于上次提交或指定基准分支的代码差异生成并执行 Git 提交。暂存相关变更，并生成符合项目规范的客观提交信息后提交。信息完全来自 diff——而非来自你的描述——使提交历史准确可审阅，无需记住对话上下文。
 
 ### gh-actions-debug
 
