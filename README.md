@@ -16,12 +16,12 @@ npx skills add SunYanbox/skills
 
 | Skill | Description |
 | --- | --- |
-| [commit-formatter-zh-cn](skills/commit-formatter-zh-cn/SKILL.md) | Formats Git commit messages per Conventional Commits — type/scope in English, description/body/footer in Chinese |
-| [commit-objectively](skills/commit-objectively/SKILL.md) | Generate and execute Git commits based strictly on the diff — stages changes, generates objective commit message from diff, reviews with user, then commits |
-| [gh-actions-debug](skills/gh-actions-debug/SKILL.md) | Debugs GitHub Actions workflow failures fast — fetches logs, errors, and workflow YAML with a single command |
-| [pr-pilot](skills/pr-pilot/SKILL.md) | One-click PR creation with project-aware AI generation — learns conventions, generates content, creates PR via throwaway worktree |
-| [pr-objectively](skills/pr-objectively/SKILL.md) | Generate Pull Request content based strictly on the diff — gathers project context (PR templates, labels, recent PRs), generates objective PR title/body/labels, reviews with user, then creates PR |
-| [worktree-pr](skills/worktree-pr/SKILL.md) | Isolate uncommitted changes into a pull request using a throwaway git worktree — commit, push, open PR, and babysit CI to green |
+| [commit-formatter-zh-cn](skills/commit-formatter-zh-cn/SKILL.md) | Formats Git commit messages per Conventional Commits — type/scope in English, description/body/footer in Chinese |
+| [commit-objectively](skills/commit-objectively/SKILL.md) | Generate and execute Git commits based strictly on the diff — stages changes, generates objective commit message from diff, reviews with user, then commits |
+| [gh-actions-debug](skills/gh-actions-debug/SKILL.md) | Debugs GitHub Actions workflow failures fast — fetches logs, errors, and workflow YAML with a single command |
+| [pr-pilot](skills/pr-pilot/SKILL.md) | One-click PR creation with project-aware AI generation — learns conventions, generates content, creates PR via throwaway worktree |
+| [pr-objectively](skills/pr-objectively/SKILL.md) | Generate Pull Request content based strictly on the diff — gathers project context (PR templates, labels, recent PRs), generates objective PR title/body/labels, reviews with user, then creates PR |
+| [worktree-pr](skills/worktree-pr/SKILL.md) | Isolate uncommitted changes into a pull request using a throwaway git worktree — commit, push, open PR, and babysit CI to green |
 | [pdf-production](skills/pdf-production/SKILL.md) | PDF generation and processing — three production lines (Report/Academic/Process) with built-in OFL fonts, layout conventions, and quality verification |
 
 ### pr-pilot
