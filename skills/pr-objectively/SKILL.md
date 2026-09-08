@@ -24,8 +24,8 @@ context.
 
 ## How it works
 
-1. **Gather context**: Run `<skill_dir>/scripts/ctx.cmd` (Windows) or `<skill_dir>/scripts/ctx.sh` (Unix)
-   to get project conventions:
+1. **Gather context (first-time only)**: Run `<skill_dir>/scripts/ctx.cmd` (Windows) or `<skill_dir>/scripts/ctx.sh` (Unix)
+   to get project conventions. This script only needs to be run once per skill session; it does not need to be re-run for each PR creation:
    - Labels from `gh label list`
    - PR template (or "No template found")
    - Recent merged/open/closed PRs (style, language, base branches)

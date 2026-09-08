@@ -24,8 +24,7 @@ remember conversation context.
 
 ## How it works
 
-1. **Gather context**: Run `<skill_dir>/scripts/ctx.cmd` (Windows) or `<skill_dir>/scripts/ctx.sh` (Unix)
-   to fetch upstream and see recent commit style.
+1. **Gather context (first-time only)**: Ensure `git fetch origin main` has been run manually first, then run `<skill_dir>/scripts/ctx.cmd` (Windows) or `<skill_dir>/scripts/ctx.sh` (Unix) to see recent commit style. This script only needs to be run once per skill session; it does not need to be re-run for each commit.
 
 2. **Determine diff base**: Use `HEAD~1` by default, or the branch the user
    specifies (e.g., `origin/main`, `develop`).
