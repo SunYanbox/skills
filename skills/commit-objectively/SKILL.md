@@ -24,8 +24,7 @@ remember conversation context.
 
 ## How it works
 
-1. **Gather context**: Run `<skill_dir>/scripts/ctx.cmd` (Windows) or `<skill_dir>/scripts/ctx.sh` (Unix)
-   to fetch upstream and see recent commit style.
+1. **Gather context (first-time only)**: Ensure `git fetch origin main` has been run manually first, then run `<skill_dir>/scripts/ctx.cmd` (Windows) or `<skill_dir>/scripts/ctx.sh` (Unix) to see recent commit style. This script only needs to be run once per skill session; it does not need to be re-run for each commit.
 
 2. **Determine diff base**: Use `HEAD~1` by default, or the branch the user
    specifies (e.g., `origin/main`, `develop`).
@@ -52,20 +51,7 @@ remember conversation context.
    platforms. The file should contain the subject, an empty line, then the body
    (if any) and footer (if any).
 
-7. **Review with user**:
-   - Check if the user explicitly requests to skip confirmation (phrases like
-     "commit directly", "no confirm", "--no-verify", "yes commit", etc.). If so,
-     proceed directly to step 8.
-   - Otherwise, try to open the temporary file for the user to review:
-     * On Windows: `start "" "<temp-file>"` or `notepad "<temp-file>"`
-     * On macOS: `open "<temp-file>"`
-     * On Linux: `xdg-open "<temp-file>"` or appropriate editor command
-   - If terminal commands are not available in the current environment, inform
-     the user of the temporary file location and ask them to review it manually.
-   - Ask for confirmation before proceeding.
-
-8. **Execute**: When user confirms or if skip was requested, run
-   `git commit -F "<temp-file>"` then clean up the temporary file.
+7. **Execute**: Run `git commit -F "<temp-file>"` then clean up the temporary file.
 
 ## What to avoid
 
@@ -74,3 +60,4 @@ remember conversation context.
 - Don't infer intent beyond what the diff shows.
 - Don't hardcode the diff base — determine it from context.
 - If the diff is empty, stop and tell the user.
+- Don't use shell commands to write files (e.g., `echo > file`, `cat > file`) when dedicated file writing tools are available (such as `write` or `edit`), as shell redirection behavior varies across platforms and can cause reliability issues.
