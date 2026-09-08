@@ -64,3 +64,4 @@ context.
 - Don't hardcode the base branch — infer or ask the user.
 - Don't include CHANGELOG reminders — that's project-specific.
 - If the diff is empty, stop and tell the user.
+- Don't use shell commands to write files (e.g., `echo > file`, `cat > file`) when dedicated file writing tools are available (such as `write` or `edit`), as shell redirection behavior varies across platforms and can cause reliability issues.
