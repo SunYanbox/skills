@@ -52,20 +52,7 @@ remember conversation context.
    platforms. The file should contain the subject, an empty line, then the body
    (if any) and footer (if any).
 
-7. **Review with user**:
-   - Check if the user explicitly requests to skip confirmation (phrases like
-     "commit directly", "no confirm", "--no-verify", "yes commit", etc.). If so,
-     proceed directly to step 8.
-   - Otherwise, try to open the temporary file for the user to review:
-     * On Windows: `start "" "<temp-file>"` or `notepad "<temp-file>"`
-     * On macOS: `open "<temp-file>"`
-     * On Linux: `xdg-open "<temp-file>"` or appropriate editor command
-   - If terminal commands are not available in the current environment, inform
-     the user of the temporary file location and ask them to review it manually.
-   - Ask for confirmation before proceeding.
-
-8. **Execute**: When user confirms or if skip was requested, run
-   `git commit -F "<temp-file>"` then clean up the temporary file.
+7. **Execute**: Run `git commit -F "<temp-file>"` then clean up the temporary file.
 
 ## What to avoid
 
