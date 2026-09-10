@@ -17,10 +17,10 @@ npx skills add SunYanbox/skills
 | Skill | Description |
 | --- | --- |
 | [commit-formatter-zh-cn](skills/commit-formatter-zh-cn/SKILL.md) | Formats Git commit messages per Conventional Commits — type/scope in English, description/body/footer in Chinese |
-| [commit-objectively](skills/commit-objectively/SKILL.md) | Generate and execute Git commits based strictly on the diff — stages changes, generates objective commit message from diff, reviews with user, then commits |
+| [commit-objectively](skills/commit-objectively/SKILL.md) | Generate and execute Git commits based strictly on the diff — stages changes, generates an objective commit message from the diff, then commits |
 | [gh-actions-debug](skills/gh-actions-debug/SKILL.md) | Debugs GitHub Actions workflow failures fast — fetches logs, errors, and workflow YAML with a single command |
 | [pr-pilot](skills/pr-pilot/SKILL.md) | One-click PR creation with project-aware AI generation — learns conventions, generates content, creates PR via throwaway worktree |
-| [pr-objectively](skills/pr-objectively/SKILL.md) | Generate Pull Request content based strictly on the diff — gathers project context (PR templates, labels, recent PRs), generates objective PR title/body/labels, reviews with user, then creates PR |
+| [pr-objectively](skills/pr-objectively/SKILL.md) | Generate Pull Request content based strictly on the diff — gathers project context (PR templates, labels, recent PRs), generates objective PR title/body/labels, then creates the PR |
 | [worktree-pr](skills/worktree-pr/SKILL.md) | Isolate uncommitted changes into a pull request using a throwaway git worktree — commit, push, open PR, and babysit CI to green |
 | [pdf-production](skills/pdf-production/SKILL.md) | PDF generation and processing — three production lines (Report/Academic/Process) with built-in OFL fonts, layout conventions, and quality verification |
 
@@ -30,7 +30,7 @@ Automates the full PR workflow with AI-generated content. Analyzes project conve
 
 ### pr-objectively
 
-Generates Pull Request content based strictly on the diff against the target base branch. Gathers project context (PR templates, labels, recent PRs) to produce an objective PR title, body, and label set, reviews with you, then executes `gh pr create`. The content comes from the diff — not from what you said or inferred — keeping PRs reviewable without needing to remember conversation context.
+Generates Pull Request content based strictly on the diff against the target base branch. Gathers project context (PR templates, labels, recent PRs) to produce an objective PR title, body, and label set, then executes `gh pr create`. The content comes from the diff — not from what you said or inferred — keeping PRs reviewable without needing to remember conversation context.
 
 ### commit-formatter-zh-cn
 
