@@ -1,15 +1,14 @@
 ---
 name: commit-objectively
 description: >
-  Generate and execute Git commits based strictly on the diff since the last commit
-  or against a specified base branch. Stages relevant changes and commits with an
-  objectively generated message that follows project conventions. Use when: (1)
-  "commit these changes", (2) "write a commit message", (3) "generate commit from diff",
-  (4) "help me commit", (5) user asks to commit current changes, (6) 提交指定文件,
-  (7) 提交所有更改, (8) 提交变更. Make sure to use this skill whenever the user
-  mentions commits, commit messages, git commit, or wants to commit changes (including
-  "提交", "commit", "commit these files", "commit all changes"), even if they don't
-  explicitly say "commit".
+  Use this skill whenever the user asks to commit, to write or generate a commit
+  message, or to commit specific files — including "commit", "commit these changes",
+  "commit all changes", "commit these files", "help me commit", "write a commit
+  message", "generate commit from diff", "提交", "提交指定文件", "提交所有更改" — and
+  whenever the user wants changes committed without saying "commit" explicitly.
+  Stage the relevant changes, read the staged diff (or the diff against the branch
+  the user names), derive the message from that diff alone — never from what the
+  user said or what you infer — and create the commit.
 ---
 
 # Commit Objectively

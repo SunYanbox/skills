@@ -1,15 +1,14 @@
 ---
 name: pr-objectively
 description: >
-  Generate Pull Request content based strictly on the diff against the target base
-  branch and create the PR. Gathers project context (PR templates, labels, recent PRs)
-  to produce an objective PR title, body, and label set, then executes `gh pr create`.
-  Use when: (1) "create a PR", (2) "generate PR description", (3) "turn this into a PR",
-  (4) "write a pull request", (5) user wants to create a PR from current changes, (6)
-  创建PR, (7) 基于指定分支创建PR, (8) 推送并创建PR. Make sure to use this skill whenever
-  the user mentions PRs, pull requests, or wants to create one (including "创建PR",
-  "create PR from branch", "push and create PR", "基于main创建PR"), even if they don't
-  explicitly say "create PR".
+  Use this skill whenever the user asks to create a PR, to write a PR description,
+  or to turn the current branch into a pull request — including "create a PR",
+  "generate PR description", "turn this into a PR", "write a pull request", "push and
+  create PR", "创建PR", "基于指定分支创建PR", "推送并创建PR" — and whenever the user
+  wants a PR opened without saying "PR" explicitly. Read the diff against the target
+  base branch (the one the user names, or the base of recent PRs), gather the
+  repository's PR template, labels and recent PR style, derive the title, body and
+  labels from that diff alone, then run `gh pr create`.
 ---
 
 # PR Objectively
