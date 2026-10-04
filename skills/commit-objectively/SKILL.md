@@ -69,8 +69,8 @@ reconstructed it from the diff.
      - Tradeoff — an approach whose obvious alternative was rejected for a reason a
        source states; the diff shows the choice, never the reason for it.
      One answered question is a normal body; answering all three usually means you are
-     filling a template. Wrap body lines at 72 characters, and use `-` for any list,
-     never `*`.
+     filling a template. Wrap body lines at 72 characters — `git log` and terminals
+     render a message unwrapped — and use `-` for any list, never `*`.
    - Footer: for an incompatible change, mark `!` after the type/scope **and** write a
      `BREAKING CHANGE:` paragraph naming the migration step. Close or reference an
      issue only when the branch name or the diff indicates one — `Closes #42`,

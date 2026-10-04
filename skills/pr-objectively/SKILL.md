@@ -46,9 +46,11 @@ changelog, a filled-in template, a validation log or a file-by-file summary.
      and not an anthology of its commit messages. When a template exists, fill the
      sections that carry content and drop the empty ones — but keep every heading the
      repository's own automation or reviewers depend on (a required title, a checklist)
-     and tick checklists honestly. Never manufacture prose to keep a heading alive. With
-     no template, follow the structure of recent PRs, typically covering only what
-     applies:
+     and tick checklists honestly. A required section with nothing to report gets one
+     honest sentence (`None`, `N/A`), never invented content; a section the repository
+     does not require is dropped rather than filled. Never manufacture prose to keep a
+     heading alive. With no template, follow the structure of recent PRs, typically
+     covering only what applies:
      - Why the branch exists — the problem, compressed, and only as a source states it:
        a linked issue, an error, log or failing-test output that came with the change,
        a failing test in the diff, or the user's own words. Omit it when the title
@@ -62,8 +64,8 @@ changelog, a filled-in template, a validation log or a file-by-file summary.
      - Issue links, only when verified from the branch name, a commit, the user or the
        tracker — never invented; `Closes #42` closes, `Refs #17` only links
      Point at a file or a CHANGELOG entry when a landmark helps; otherwise describe
-     behavior, not code. Wrap body lines at 72 characters, and use `-` for lists,
-     never `*`.
+     behavior, not code. Use `-` for lists, never `*`, and leave paragraphs unwrapped:
+     GitHub renders them, and the repository's own PR bodies are long-line.
    - **Labels**: Select from `gh label list` output by change type (bug fix → bug
      label, new feature → feature label, docs → documentation, etc.). Use the
      repository's own label names, and skip a label it does not have rather than
@@ -163,8 +165,11 @@ there, and prose about it ages badly.
   conversation or address the user in the PR: a reason the user stated is material, not
   a sentence to copy.
 - Don't walk the diff file by file, don't list the commit messages as an anthology,
-  and don't paste CHANGELOG entries, commands, CI logs, validation dumps or
-  placeholders — each already sits in front of the reviewer.
+  and don't paste CHANGELOG entries, commands, CI logs or validation dumps — each
+  already sits in front of the reviewer.
+- Don't leave the template's own scaffolding in the body: drop its `<!-- ... -->`
+  guidance comments and `_Describe the change_` stubs, and drop an unrequired empty
+  section instead of filling it.
 - Don't add a `Summary`, `Changes` or `Test Plan` heading the repository does not
   require.
 - Don't restate what the diff shows: delete any sentence a reviewer could have written
