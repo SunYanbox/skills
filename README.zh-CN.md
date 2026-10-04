@@ -16,10 +16,10 @@ npx skills add SunYanbox/skills
 | 技能 | 描述 |
 |------|------|
 | [commit-formatter-zh-cn](skills/commit-formatter-zh-cn/SKILL.md) | 基于 Conventional Commits 规范格式化 Git 提交信息——type/scope 使用英文，description/body/footer 使用中文 |
-| [commit-objectively](skills/commit-objectively/SKILL.md) | 严格基于代码差异生成并执行 Git 提交——暂存变更、从 diff 生成客观提交信息后提交 |
+| [commit-objectively](skills/commit-objectively/SKILL.md) | 基于代码差异生成并执行 Git 提交——暂存变更、依据有出处的理由生成客观提交信息后提交 |
 | [gh-actions-debug](skills/gh-actions-debug/SKILL.md) | 快速调试 GitHub Actions 工作流失败——单个命令获取日志、错误信息和工作流 YAML |
 | [pr-pilot](skills/pr-pilot/SKILL.md) | 一键创建 PR，自动分析项目偏好、AI 生成提交信息与 PR 内容，通过临时 worktree 完成创建 |
-| [pr-objectively](skills/pr-objectively/SKILL.md) | 严格基于代码差异生成 Pull Request 内容——收集项目上下文（PR 模板、标签、近期 PR）、生成客观的 PR 标题/正文/标签后创建 PR |
+| [pr-objectively](skills/pr-objectively/SKILL.md) | 基于代码差异生成 Pull Request 内容——收集项目上下文（PR 模板、标签、近期 PR）、生成客观的 PR 标题/正文/标签后创建 PR |
 | [worktree-pr](skills/worktree-pr/SKILL.md) | 将未提交的更改隔离到独立的 Pull Request 中——使用临时 git worktree 提交、推送、创建 PR 并监控 CI 直至通过 |
 | [pdf-production](skills/pdf-production/SKILL.md) | PDF 生成与处理——三条生产线（Report/Academic/Process），内置 OFL 字体、版式规范与质量校验 |
 
@@ -29,7 +29,7 @@ npx skills add SunYanbox/skills
 
 ### pr-objectively
 
-严格基于目标基准分支的代码差异生成 Pull Request 内容。收集项目上下文（PR 模板、标签、近期 PR）以生成客观的 PR 标题、正文和标签集，然后执行 `gh pr create`。内容完全来自 diff——而非来自你的描述或推断——使 PR 易于审阅，无需记住对话上下文。
+基于目标基准分支的代码差异生成 Pull Request 内容。收集项目上下文（PR 模板、标签、近期 PR）以生成客观的 PR 标题、正文和标签集，然后执行 `gh pr create`。内容来自 diff 与有出处的理由——用户明说的原因算出处，模型推断的不算——使 PR 易于审阅，无需记住对话上下文。正文保持简短：只写 diff 无法承载的上下文，而非逐文件复述；动机仅在 diff 之外的出处（关联 issue、报错日志、用户明说的原因等）写明时才写，验证信息仅在审阅者无法想当然认为已通过时列出，且绝不写未真正运行的检查。结构只取让评审最省事的程度，before/after、schema、示意图、截图等只在确实减少评审负担时才加。
 
 ### commit-formatter-zh-cn
 
@@ -42,7 +42,7 @@ npx skills add SunYanbox/skills
 
 ### commit-objectively
 
-严格基于上次提交或指定基准分支的代码差异生成并执行 Git 提交。暂存相关变更，并生成符合项目规范的客观提交信息后提交。信息完全来自 diff——而非来自你的描述——使提交历史准确可审阅，无需记住对话上下文。
+基于上次提交或指定基准分支的代码差异生成并执行 Git 提交。暂存相关变更，并生成符合项目规范的客观提交信息后提交。信息来自 diff 与有出处的理由——用户明说的原因算出处，模型推断的不算——使提交历史准确可审阅，无需记住对话上下文。提交信息保持精简：diff 本身已说明清楚时只写一行标题，正文只写有出处的理由（破坏性变更、安全修复、数据迁移、回滚必须写正文），且不报告项目例行检查。
 
 ### gh-actions-debug
 

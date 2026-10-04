@@ -17,10 +17,10 @@ npx skills add SunYanbox/skills
 | Skill | Description |
 | --- | --- |
 | [commit-formatter-zh-cn](skills/commit-formatter-zh-cn/SKILL.md) | Formats Git commit messages per Conventional Commits — type/scope in English, description/body/footer in Chinese |
-| [commit-objectively](skills/commit-objectively/SKILL.md) | Generate and execute Git commits based strictly on the diff — stages changes, generates an objective commit message from the diff, then commits |
+| [commit-objectively](skills/commit-objectively/SKILL.md) | Generate and execute Git commits from the diff — stages changes, generates an objective commit message from a stated reason, then commits |
 | [gh-actions-debug](skills/gh-actions-debug/SKILL.md) | Debugs GitHub Actions workflow failures fast — fetches logs, errors, and workflow YAML with a single command |
 | [pr-pilot](skills/pr-pilot/SKILL.md) | One-click PR creation with project-aware AI generation — learns conventions, generates content, creates PR via throwaway worktree |
-| [pr-objectively](skills/pr-objectively/SKILL.md) | Generate Pull Request content based strictly on the diff — gathers project context (PR templates, labels, recent PRs), generates objective PR title/body/labels, then creates the PR |
+| [pr-objectively](skills/pr-objectively/SKILL.md) | Generate Pull Request content from the diff — gathers project context (PR templates, labels, recent PRs), generates objective PR title/body/labels, then creates the PR |
 | [worktree-pr](skills/worktree-pr/SKILL.md) | Isolate uncommitted changes into a pull request using a throwaway git worktree — commit, push, open PR, and babysit CI to green |
 | [pdf-production](skills/pdf-production/SKILL.md) | PDF generation and processing — three production lines (Report/Academic/Process) with built-in OFL fonts, layout conventions, and quality verification |
 
@@ -30,7 +30,7 @@ Automates the full PR workflow with AI-generated content. Analyzes project conve
 
 ### pr-objectively
 
-Generates Pull Request content based strictly on the diff against the target base branch. Gathers project context (PR templates, labels, recent PRs) to produce an objective PR title, body, and label set, then executes `gh pr create`. The content comes from the diff — not from what you said or inferred — keeping PRs reviewable without needing to remember conversation context.
+Generates Pull Request content from the diff against the target base branch. Gathers project context (PR templates, labels, recent PRs) to produce an objective PR title, body, and label set, then executes `gh pr create`. The content comes from the diff and from reasons a source states — the user's own words count, an inferred motive does not — keeping PRs reviewable without needing to remember conversation context. The body stays short: context the diff cannot carry, never a walkthrough of it, a motivation only when a source outside the diff states it, and verification only when a reviewer would otherwise assume wrongly — never a check that was not run. Structure stays as small as the change allows, and an aid (before/after, schema, diagram, screenshot) appears only when it saves the reviewer work.
 
 ### commit-formatter-zh-cn
 
@@ -43,7 +43,7 @@ Uses Conventional Commits types (`feat`, `fix`, `docs`, etc.) with Chinese descr
 
 ### commit-objectively
 
-Generates and executes Git commits based strictly on the diff since the last commit or against a specified base branch. Stages relevant changes and commits with an objectively generated message that follows project conventions. The message comes from the diff — not from what you said — keeping commit history accurate and reviewable without needing to remember conversation context.
+Generates and executes Git commits from the diff since the last commit or against a specified base branch. Stages relevant changes and commits with an objectively generated message that follows project conventions. The message comes from the diff and from reasons a source states — the user's own words count, an inferred motive does not — keeping commit history accurate and reviewable without needing to remember conversation context. Messages stay minimal: a subject line alone when the diff explains itself, a body only for a reason a source states — never an inferred one, and always for a breaking change, a security fix, a migration or a revert — and no reports of routine checks.
 
 ### gh-actions-debug
 
